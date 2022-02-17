@@ -1,0 +1,4 @@
+protobuf==3.17.1
+numpy==1.17.2
+stable-baselines==2.10.1
+tensorflow==1.6.0

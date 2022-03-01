@@ -23,10 +23,8 @@ class AI():
       if (isinstance(go, Tank)):
         if go.color == self.color:
           self.myTanks.append(go)
-          print("MYTank: " + str(go) + " " + str(go.color))
         else:
           self.enemyTanks.append(go)
-          print("Enemy Tank pos(x):" + str(go.position.x))
       elif (isinstance(go, Flag)):
         if go.color == self.color:
           self.myFlag = go
@@ -41,7 +39,7 @@ class AI():
     #print(str(self.myTanks))
 
   def control(self):
-    
+
     for t in self.myTanks:
       if (t.respawn):
         #print("Respawning?")

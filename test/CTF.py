@@ -51,7 +51,7 @@ class CTF(gym.Env):
 		self.obs_limits_low[i] = 0.0
 		self.obs_limits_high[i] = 100.0
 		i=i+1
-	
+
 		#Setting the highest and lowest value for each feature in the observation in order to normalize the state space
 		while(i<self.obs_size):
 			if((i % (self.obs_size/4)) < 6*(len(gameConsts.players)-1)):
@@ -102,10 +102,10 @@ class CTF(gym.Env):
 				self.obs_limits_low[i] = -180.0
 				self.obs_limits_high[i] = 180.0
 				i=i+1
-				
+
 		#Set Observation space limits
 		self.observation_space = spaces.Box(low=np.array(self.obs_limits_low), high=np.array(self.obs_limits_high), dtype=np.float32)
-		
+
 
 	def addToGameObject(self, go):
 		self.gameObjects.append(go)
@@ -115,14 +115,14 @@ class CTF(gym.Env):
 		for x in range(0, gameConsts.MAP_WIDTH, gameConsts.BACKGROUND_SIZE):
 			for y in range(0, gameConsts.MAP_WIDTH, gameConsts.BACKGROUND_SIZE):
 				self.screen.blit(self.bg, (x,y))
-				
+
 		pg.draw.rect(self.screen, (10,10,10,25), (self.scoreboard.x, self.scoreboard.y, self.scoreboard.width, self.scoreboard.height))
 		i = 0
 		for key, s in self.scoreboard.score.items():
 			text = self.scoreboard.font.render(str(key)+":"+str(s), False, (255,255,255))
 			self.screen.blit(text, (self.scoreboard.x + gameConsts.TANK_FONT_SIZE, self.scoreboard.y + gameConsts.TANK_FONT_SIZE + (gameConsts.TANK_FONT_SIZE * i)))
 			i = i + 1
-			
+
 		for obj1 in self.gameObjects:
 			if(isinstance(obj1, Tank)):
 				if obj1.selected:
@@ -130,9 +130,9 @@ class CTF(gym.Env):
 					pg.draw.rect(self.screen, gameConsts.SELECTED_COLOR, [obj1.position[0]-obj1.radius,obj1.position[1]-obj1.radius,2*obj1.radius,2*obj1.radius], 1)
 				# self.text = self.font.render(f'{str(self.angle)}-{str(self.direction)}', False, gameConsts.SELECTED_COLOR) # DEBUG
 				self.screen.blit(obj1.text, (obj1.position[0], obj1.position[1] + obj1.radius))
-			
+
 			obj1.getSprite().draw(self.screen)
-		
+
 		pg.display.flip()
 
 	def reset(self):
@@ -145,12 +145,12 @@ class CTF(gym.Env):
 		self.bg = pg.transform.scale(self.bg, (gameConsts.BACKGROUND_SIZE, gameConsts.BACKGROUND_SIZE))
 		self.gameObjects = []
 
-		self.allTanks = []		
+		self.allTanks = []
 		self.BlueTanks = []
 		self.RedTanks = []
 		self.allAIPlayers = []
 
-		self.allObstacles = []	
+		self.allObstacles = []
 		self.allBases = []
 		self.allFlags = []
 		self.allBullets = []
@@ -161,7 +161,7 @@ class CTF(gym.Env):
 		self.alive_blue = 0
 		self.alive_red = 0
 		self.kill_interval = 0
-		
+
 		self.dist_to_flag = 1.0
 		self.dist_to_base = 0.0
 
@@ -176,7 +176,7 @@ class CTF(gym.Env):
 			base = Base(p['color'], (p['base']['x'], p['base']['y']), p['base']['size'])
 			self.gameObjects.append(base)
 			self.allBases.append(base)
-	    
+
 		#Add Tanks
 		tankNum = 1 # TODO: replace with dictionary index?
 		for p in gameConsts.players:
@@ -193,7 +193,7 @@ class CTF(gym.Env):
 					# 	self.allAIPlayers.append(AI(p['color'], self.gameObjects))
 					self.RedTanks.append(tank)
 		self.allAIPlayers.append(AI('red', self.gameObjects))
-				
+
 
 		#Add flags after tanks so they are on top
 		for p in gameConsts.players:
@@ -227,22 +227,21 @@ class CTF(gym.Env):
 					continue
 			if (isinstance(obj1, Flag)):
 				if obj1.pickedUp and obj1.pickedUpBy.respawn:
-					obj1.pickedUpBy.setFlag(None) 
+					obj1.pickedUpBy.setFlag(None)
 					obj1.dropped()
 			if(isinstance(obj1, Tank)):
 				if(obj1.color == "blue"):
 					obj1.update(0)
 				else:
 					obj1.update(1)
-					print("updated?")
 
 			else:
 				obj1.update()
 			#obj1.getSprite().draw(self.screen)
-	       
-	 
+
+
 		pg.display.flip()
-		
+
 		observations = []
 		for obj in self.allTanks:
 			observations.append(self.observation(obj))
@@ -251,9 +250,9 @@ class CTF(gym.Env):
 
 
 	def step(self, actions):
-		
+
 		self.time_steps = self.time_steps + 1
-		
+
 		local_rewards = [0]*len(self.allTanks)	#Used to set each tanks independent reward earned
 		global_rewards_blue = 0.0	#Reward for all Blue tanks
 		global_rewards_red = 0.0	#Reward for all Red tanks
@@ -285,10 +284,10 @@ class CTF(gym.Env):
 				a = (a - (-1)) / (1 - (-1))
 				a = round(a)
 				if(a == 1):
-					if(self.allTanks[t].fired == 0 and self.allTanks[t].respawn == False):	
+					if(self.allTanks[t].fired == 0 and self.allTanks[t].respawn == False):
 						self.allBullets.append(self.allTanks[t].fire())
 						local_rewards[t] = -1.0
-							
+
 				t = t+1
 
 		if(self.BlueTanks[0].respawn == False):
@@ -332,7 +331,7 @@ class CTF(gym.Env):
 					continue
 			if (isinstance(obj1, Flag)):
 				if obj1.pickedUp and obj1.pickedUpBy.respawn:
-					obj1.pickedUpBy.setFlag(None) 
+					obj1.pickedUpBy.setFlag(None)
 					obj1.dropped()
 			if(isinstance(obj1, Tank)):
 				if(obj1.color == "blue"):
@@ -342,8 +341,8 @@ class CTF(gym.Env):
 			else:
 				obj1.update()
 			#obj1.getSprite().draw(self.screen)
-	       
-	 
+
+
 		for t in self.allTanks:
 			self.scoreboard.updateScore(self.team_1_score, self.team_2_score)
 
@@ -355,7 +354,7 @@ class CTF(gym.Env):
 		if(self.time_steps % render_freq == 0):
 			self.render()
 
-		
+
 		rew = self.reward(local_rewards[:len(self.BlueTanks)], global_rewards_blue)
 		shaping_rew = np.array([max(100*(1-self.stole_flag)*(self.prev_dist_to_flag - self.dist_to_flag) + 100*self.stole_flag*(self.prev_dist_to_base - self.dist_to_base), -10.0)])
 		return [observations, [[rew, np.array(shaping_rew)], self.reward(local_rewards[len(self.BlueTanks):], global_rewards_red)], done, {}]
@@ -366,7 +365,7 @@ class CTF(gym.Env):
 		obs = [0]*int(self.obs_size/4)
 		i = 0
 		vals = 3
-		
+
 		obs[i] = (int(isinstance(tank.flag, Flag)) - self.obs_limits_low[i]) / (self.obs_limits_high[i] - self.obs_limits_low[i])
 		self.stole_flag = obs[i]
 		i = i+1
@@ -434,14 +433,14 @@ class CTF(gym.Env):
 			if(obj.color == "red"):
 				self.prev_dist_to_flag = self.dist_to_flag
 				self.dist_to_flag = (self.get_dist(tank.position[0], tank.position[1], obj.position[0], obj.position[1]) - self.obs_limits_low[i]) / (self.obs_limits_high[i] - self.obs_limits_low[i])
-				
+
 		for obj in self.allBases:
 			if(obj.color == "blue"):
 				self.prev_dist_to_base = self.dist_to_base
 				self.dist_to_base = (self.get_dist(tank.position[0], tank.position[1], obj.position[0], obj.position[1]) - self.obs_limits_low[i]) / (self.obs_limits_high[i] - self.obs_limits_low[i])
 
 		ob = np.concatenate((np.array(self.obs[int(self.obs_size/4):]), np.array(obs)))
-			
+
 		return np.array(ob)
 
 
@@ -484,7 +483,7 @@ class CTF(gym.Env):
 		if(isinstance(o1, Bullet) and o2Tank and (o1.color != o2.color or gameConsts.FRIENDLY_FIRE) and o1.tank_num != o2.tank_num):
 			if(o2.ghost):
 				return [local_rewards, global_rewards_blue, global_rewards_red]
-			
+
 			#Local Rewards
 			'''if(o1.tank_num <= len(self.BlueTanks)):
 				#Blue tank shoots red
@@ -507,7 +506,7 @@ class CTF(gym.Env):
 						local_rewards[o1.tank_num-1] = local_rewards[o1.tank_num-1] + 20.0
 						local_rewards[o2.tank_num-1] = local_rewards[o2.tank_num-1] - 20.0
 					else:
-						local_rewards[o1.tank_num-1] = local_rewards[o1.tank_num-1] + 20.0 
+						local_rewards[o1.tank_num-1] = local_rewards[o1.tank_num-1] + 20.0
 						local_rewards[o2.tank_num-1] = local_rewards[o2.tank_num-1] - 20.0
 					self.kill_interval = 0
 				else:
@@ -539,7 +538,7 @@ class CTF(gym.Env):
 				o2.flag.dropped()
 				o2.setFlag(None)
 			o2.setRespawn(self.time_steps)
-		
+
 		if(o1Tank and isinstance(o2, Flag) and (o1.color != o2.color)):
 			o1.setFlag(o2)
 			o2.setPickedUp(o1)
@@ -555,7 +554,7 @@ class CTF(gym.Env):
 				self.team_1_score += 100
 			else:
 				global_rewards_red = global_rewards_red + 100
-				global_rewards_blue = global_rewards_blue - 100			
+				global_rewards_blue = global_rewards_blue - 100
 				self.team_2_score += 100
 		return [local_rewards, global_rewards_blue, global_rewards_red]
 
@@ -615,7 +614,7 @@ class CTF(gym.Env):
 					des_x, des_y = tankTarget['enemyTank'].position
 					if(tankTarget['dist'] < gameConsts.FIRE_ENEMY_RANGE):
 						fire = 1
-			
+
 				speed, ang_speed = self.control_update(t.position[0], t.position[1], des_x, des_y, t.direction, t.radius)
 				return np.array([speed, ang_speed, fire])
 
@@ -663,7 +662,7 @@ class CTF(gym.Env):
 					des_x, des_y = tankTarget['enemyTank'].position
 					if(tankTarget['dist'] < gameConsts.FIRE_ENEMY_RANGE):
 						fire = 1
-			
+
 				speed, ang_speed = self.control_update(t.position[0], t.position[1], des_x, des_y, t.direction, t.radius)
 				return np.array([speed, ang_speed, fire])
 
@@ -687,7 +686,7 @@ class CTF(gym.Env):
 			speed = round(4 * distance / radius, 2)
 		else:
 			speed = gameConsts.TANK_MAX_SPEED
-		
+
 		speed = speed/gameConsts.TANK_MAX_SPEED
 		angleSpeed = angleSpeed / gameConsts.TANK_MAX_ROTATION
 		return [speed, angleSpeed]

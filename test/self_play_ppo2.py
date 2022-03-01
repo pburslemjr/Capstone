@@ -102,7 +102,7 @@ class self_play_ppo2(ActorCriticRLModel):
         self.value = None
         self.n_batch = None
         self.summary = None
-        
+
 
         super().__init__(policy=policy, env=env, verbose=verbose, requires_vec_env=True,
                          _init_setup_model=_init_setup_model, policy_kwargs=policy_kwargs,
@@ -257,7 +257,7 @@ class self_play_ppo2(ActorCriticRLModel):
 
                 self.summary = tf.summary.merge_all()
 
-    #This function is used to pass the data to calculate the various loss values, log and return them 
+    #This function is used to pass the data to calculate the various loss values, log and return them
     def _train_step(self, learning_rate, cliprange, obs, returns, masks, actions, values, neglogpacs, update,
                     writer, states=None, cliprange_vf=None):
         """
@@ -360,7 +360,7 @@ class self_play_ppo2(ActorCriticRLModel):
                 lr_now = self.learning_rate(frac)
                 cliprange_now = self.cliprange(frac)
                 cliprange_vf_now = cliprange_vf(frac)
-                    
+
                 #Choose whether the model will be trained in this step or not. Every switch_freq steps the training shifts between model 1 and model 2
                 if(update%(switch_freq//self.n_batch) == 0):
                     if(allow_update == 1):
@@ -428,13 +428,13 @@ class self_play_ppo2(ActorCriticRLModel):
                     loss_vals = np.mean(mb_loss_vals, axis=0)
                     t_now = time.time()
                     fps = int(self.n_batch / (t_now - t_start))
-    
+
                     if writer is not None:
                         total_episode_reward_logger(self.episode_reward,
                                                     true_reward.reshape((self.n_envs, self.n_steps)),
                                                     masks.reshape((self.n_envs, self.n_steps)),
                                                     writer, self.num_timesteps)
-    
+
                     if self.verbose >= 1 and allow_update:
                         #log rewards and loss
                         print(np.mean(true_reward), np.shape(true_reward))
@@ -557,17 +557,17 @@ class Runner(AbstractEnvRunner):
         """
         self.callback = callback
         self.continue_training = True
-        self.model_num = model_num  
+        self.model_num = model_num
         self.update_buffers = allow_update
         return self._run()
-        
+
     def phase_condition(self, episode, last_update):
         return (episode%100==0 and episode!=last_update)
-            
- 
+
+
     def get_phase_step(self):
         return 0.1
-    
+
     def _run(self):
         """
         Run a learning step of the model
@@ -582,20 +582,21 @@ class Runner(AbstractEnvRunner):
             - states: (np.ndarray) the internal states of the recurrent policies
             - infos: (dict) the extra information of the model
         """
-   
+
         # mb stands for minibatch
         mb_obs, mb_rewards, mb_actions, mb_values, mb_dones, mb_neglogpacs, mb_unshaped_reward = [], [], [], [], [], [], []
-        
+
+        print("RUN CALLED model num: " + str(self.model_num))
         mb_states = self.states
         ep_infos = []
         model = self.model
-        #If a model is not being trained but only used for prediction. In a non-self-play setting this can be ignored. 
+        #If a model is not being trained but only used for prediction. In a non-self-play setting this can be ignored.
         if(self.update_buffers == 0):
             filenames = next(walk("."), (None, None, []))[2]
-            #list of all previous saved models 
+            #list of all previous saved models
             saved_models = [ f for f in filenames if "Model_"+str(self.model_num) in f]
             saved_models.sort()
-            model_decider = random.random() 
+            model_decider = random.random()
             f = open("model_used_"+str(self.model_num)+".txt", "a+")
             #Randomly pick from among older versions of the model. This is used to train a model against older versions of its opponent to prevent overfitting
             if(model_decider > 0.0 and saved_models != []):
@@ -609,6 +610,7 @@ class Runner(AbstractEnvRunner):
                     print("Using latest model")
                     f.write("1\n")
             f.close()
+        #print(self.n_steps)
 
         for _ in range(self.n_steps):
             #If the model is not allowed to train it will only predict
@@ -623,19 +625,19 @@ class Runner(AbstractEnvRunner):
                 mb_values.append(values)
                 mb_neglogpacs.append(neglogpacs)
                 mb_dones.append(self.dones)
-                
+
             #Communicate the action to be taken to the main training program
             self.conn[1].put(actions)
             self.conn[1].join()
             #Recieve the new observation and reward after taking the action
             self.obs[:], rewards, self.dones, infos, clipped_actions = self.conn[0].get()
             self.conn[0].task_done()
-            
+
             episode = self.env.get_attr("episode")[0]
             if(self.phase_condition(episode, self.last_update)):
                 self.rew_frac = max(self.rew_frac-self.get_phase_step(), 0.0)
                 self.last_update = episode
-            
+
             if(self.update_buffers == 1):
                 unshaped_reward = rewards[0]
                 rewards = rewards[0] + self.rew_frac*rewards[1]
@@ -658,8 +660,12 @@ class Runner(AbstractEnvRunner):
                     maybe_ep_info = info.get('episode')
                     if maybe_ep_info is not None:
                         ep_infos.append(maybe_ep_info)
-                mb_rewards.append(rewards)
-                mb_unshaped_reward.append(unshaped_reward)
+                mb_rewards.append(rewards[1])
+
+                if(len(mb_rewards)%1000 == 0):
+                    print(np.shape(mb_rewards))
+                    print(np.shape(rewards))
+                mb_unshaped_reward.append(unshaped_reward[1])
 
 
         if(self.update_buffers == 0):
@@ -668,6 +674,8 @@ class Runner(AbstractEnvRunner):
         # batch of steps to batch of rollouts
         mb_obs = np.asarray(mb_obs, dtype=self.obs.dtype)
         mb_rewards = np.asarray(mb_rewards, dtype=np.float32)
+        print("shape of mb_rewards: " + str(np.shape(mb_rewards)))
+        print("n_steps: " + str(self.n_steps))
         mb_rewards = np.reshape(mb_rewards, (self.n_steps, 1))
         mb_unshaped_reward = np.asarray(mb_unshaped_reward, dtype=np.float32)
         mb_unshaped_reward = np.reshape(mb_unshaped_reward, (self.n_steps, 1))
@@ -699,6 +707,7 @@ class Runner(AbstractEnvRunner):
         mb_obs, mb_returns, mb_dones, mb_actions, mb_values, mb_neglogpacs, true_reward = \
             map(swap_and_flatten, (mb_obs, mb_returns, mb_dones, mb_actions, mb_values, mb_neglogpacs, true_reward))
 
+        print("RETURNING: " + str(np.shape(true_reward)))
         return mb_obs, mb_returns, mb_dones, mb_actions, mb_values, mb_neglogpacs, mb_states, ep_infos, true_reward, mb_unshaped_reward, self.rew_frac
 
 
@@ -712,4 +721,4 @@ def swap_and_flatten(arr):
     """
     shape = arr.shape
     return arr.swapaxes(0, 1).reshape(shape[0] * shape[1], *shape[2:])
-    
+

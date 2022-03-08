@@ -562,7 +562,7 @@ class Runner(AbstractEnvRunner):
         return self._run()
 
     def phase_condition(self, episode, last_update):
-        return (episode%100==0 and episode!=last_update)
+        return (episode%1==0 and episode!=last_update)
 
 
     def get_phase_step(self):
@@ -660,12 +660,11 @@ class Runner(AbstractEnvRunner):
                     maybe_ep_info = info.get('episode')
                     if maybe_ep_info is not None:
                         ep_infos.append(maybe_ep_info)
-                mb_rewards.append(rewards[1])
+                mb_rewards.append(rewards[0])
 
                 if(len(mb_rewards)%1000 == 0):
-                    print(np.shape(mb_rewards))
-                    print(np.shape(rewards))
-                mb_unshaped_reward.append(unshaped_reward[1])
+                    print("Reward: " + str(rewards))
+                mb_unshaped_reward.append(unshaped_reward[0])
 
 
         if(self.update_buffers == 0):

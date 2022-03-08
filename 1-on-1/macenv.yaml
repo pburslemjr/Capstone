@@ -1,0 +1,4 @@
+name: CTFMAC
+channels:
+  - defaults
+prefix: /Users/avery/miniconda3/envs/CTFMAC

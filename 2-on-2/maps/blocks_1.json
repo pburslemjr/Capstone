@@ -1,0 +1,51 @@
+{
+  "width": 800,
+  "height": 800,
+  "background": "img/grass(100x100).png",
+  "scoreboard": {
+    "x": 10,
+    "y": 600
+  },
+  "obstacles": [{
+    "x": 300,
+    "y": 300,
+    "size": 50
+  }, {
+    "x": 500,
+    "y": 300,
+    "size": 50
+  }, {
+    "x": 300,
+    "y": 500,
+    "size": 50
+  }, {
+    "x": 500,
+    "y": 500,
+    "size": 50
+  }],
+  "players": [
+    {
+      "human": true,
+      "color": "blue",
+      "base": {
+        "x": 60,
+        "y": 60,
+        "size": 100
+      },
+      "tanks": [
+        {"position": {"x":50, "y":50}}
+      ]
+    }, {
+      "human": false,
+      "color": "red",
+      "base": {
+        "x": 740,
+        "y": 740,
+        "size": 100
+      },
+      "tanks":[
+        {"position": {"x":800, "y":750}}
+      ]
+    }
+  ]
+}

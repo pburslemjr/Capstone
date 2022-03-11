@@ -53,7 +53,6 @@ steps_2 = 0
 def run_learner(conn, total_timesteps, iteration, model_num):
 
 
-    print("akjsdhkasjhdkja")
     policy_kwargs = dict(net_arch=[512, 512])
     model = self_play_ppo2(MlpPolicy, conn, verbose=1, seed = 1, n_steps = 20480, model_num = 1, tensorboard_log = "log", policy_kwargs=policy_kwargs)
 
@@ -112,8 +111,7 @@ def create_callback_1(model, verbose=1):
         #Save a model every 10 episodes
         if(len(episode_rewards) == last_saved + 10):
             print(_locals["model_num"], "Saving model")
-            #_locals['self'].save("ppo2_CTF_1")the number under which the next model is saved is determined
-        if(file_num != []):
+            #_locals['self'].save("ppo2_CTF_1")
             if((int(steps/2000000)+file_num) < 10):
                 model.save("Model_"+str(_locals["model_num"])+"_0"+str(int(steps/2000000)+file_num))    #Save every 2,000,000 steps of the model under the same model name, to prevent the creation of too many model files.
             else:

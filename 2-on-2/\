@@ -298,7 +298,7 @@ class CTF(gym.Env):
         print("return of reward: " + str(self.reward(local_rewards, global_rewards)))
         local_rews = self.reward(local_rewards, global_rewards)
 
-        return [self.obs, np.sum(local_rews), done, {}]
+        return [self.obs, local_rews[0], local_rews[1], done, {}]
 
 
     def observation(self):

@@ -87,30 +87,35 @@ iterations = args.n_episodes
 models = []
 
 for i in range(2):
-    if(args.load_model != ""):
+    if(args.load_model != ""): #if we are loading a previous model
         models.append(CustomPPO2.load(args.load_model, env = make_vec_env(lambda:env)))
         print(args.load_model)
     else:
         policy_kwargs = dict(act_fun=tf.nn.tanh, net_arch=[512, 512])
-        models.append(CustomPPO2(MlpPolicy, env, verbose=1, seed = 1, n_steps = 20480, tensorboard_log = "log", policy_kwargs=policy_kwargs))
-        model.save("CTF_rand" + str(i))
+        models.append(CustomPPO2(MlpPolicy, env, verbose=1, seed = 1, n_steps = 20480, tensorboard_log = "log", policy_kwargs=policy_kwargs, model_num=i+1))
+
+        models[-1].save("CTF_rand" + str(i))
         print("Train from scratch")
 
 #model = PPO2(MlpPolicy, env, verbose=1, seed = 1, n_steps = 2048, tensorboard_log = "log")
 #model.pretrain(dataset, n_epochs = 5000)
 #model.save("ppo2_pretrained_CTF_2")
-model.gamma = 0.99
-model.lam = 0.95
-model.nminibatches = 10
-model.noptepochs = 3
-model.ent_coef = 0.005 #(beta)
-model.learning_rate = 0.0003#3
-model.cliprange = 0.2 #(epislon)
+for i, model in enumerate(models):
+    model.gamma = 0.99
+    model.lam = 0.95
+    model.nminibatches = 10
+    model.noptepochs = 3
+    model.ent_coef = 0.005 #(beta)
+    model.learning_rate = 0.0003#3
+    model.cliprange = 0.2 #(epislon)
 #model.seed = 0
 
-kwargs = {}
-kwargs.update({'callback': create_callback(model, verbose=1)})
+    kwargs = {}
+    kwargs.update({'callback': create_callback(model, verbose=1)})
 
-print(model)
-model.learn(total_cycles = 1000, iteration = 0, rl_optimization = 20480*100, **kwargs)
-model.save("CTF_4")
+    print("Model: " + str(model.model_num))
+
+    model.learn(total_cycles = 1000, iteration = 0, rl_optimization = 20480*100, **kwargs)
+    model.save("CTF_" + str(i))
+
+print("bye")

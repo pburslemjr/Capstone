@@ -363,6 +363,7 @@ class self_play_ppo2(ActorCriticRLModel):
 
                 #Choose whether the model will be trained in this step or not. Every switch_freq steps the training shifts between model 1 and model 2
                 if(update%(switch_freq//self.n_batch) == 0):
+                    print("Switching Training!!")
                     if(allow_update == 1):
                         allow_update = 0
                     else:

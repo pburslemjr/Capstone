@@ -261,7 +261,7 @@ class CTF(gym.Env):
         global_rewards_red = 0.0    #Reward for all Red tanks
 
         C = 10
-        render_freq = 10
+        render_freq = 4
         '''if(self.time_steps % render_freq == 0):
             # screen.fill(gameConsts.BACKGROUND_COLOR) # TODO: replace with grass
             for x in range(0, gameConsts.MAP_WIDTH, gameConsts.BACKGROUND_SIZE):

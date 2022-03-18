@@ -19,6 +19,7 @@ import gym
 import argparse
 import re
 import os
+import time
 
 os.environ["PYTHONHASHSEED"] = str(1)
 
@@ -28,7 +29,7 @@ parser.add_argument('--blue-model', help='Model for blue agent', default='',
                     type=str, required=False)
 parser.add_argument('--red-model', help='Model for red agent', default='',
                     type=str, required=False)
-parser.add_argument('-n', '--n-episodes', help='Overwrite the number of episodes', default=500,
+parser.add_argument('-n', '--n-episodes', help='Overwrite the number of episodes', default=1000,
                     type=int)
 parser.add_argument('-switch-freq', help='After how many steps does training shift from one agent to the other', default=2500000,
                     type=int)
@@ -49,6 +50,8 @@ steps = 0
 last_saved_2 = 0
 episode_rewards_2 = [0.0]
 steps_2 = 0
+prev_time = time.clock()
+current_time = time.clock() - prev_time
 
 def run_learner(conn, total_timesteps, iteration, model_num):
 
@@ -91,6 +94,9 @@ def create_callback_1(model, verbose=1):
         global last_saved
         global episode_rewards
         global steps
+        global prev_time
+        global current_time
+
 
         steps = steps + 1
 
@@ -98,6 +104,9 @@ def create_callback_1(model, verbose=1):
         #When an episode is over, save episode_reward
         if(steps%20480 == 0):
             print("Model: ", _locals["model_num"], "total steps: ", steps, "\nEpisodes Reward = ", episode_rewards[-1], len(episode_rewards))
+            current_time = time.clock() - prev_time
+            print("Episode took ", current_time, " seconds")
+            prev_time = time.clock()
             episode_rewards.append(0.0)
 
         file_num = re.findall("\d*", args.blue_model[-3:])
@@ -146,12 +155,17 @@ def create_callback_2(model, verbose=1):
         global last_saved_2
         global episode_rewards_2
         global steps_2
+        global prev_time
+        global current_time
 
         steps_2 = steps_2 + 1
 
         episode_rewards_2[-1] = episode_rewards_2[-1] + _locals['rewards']
         if(steps_2%20480 == 0):
-            print(_locals["model_num"], steps_2, "Episodes Reward = ", episode_rewards_2[-1], len(episode_rewards_2))
+            print("Model: ", _locals["model_num"], "total steps: ", steps_2, "\nEpisodes Reward = ", episode_rewards_2[-1], len(episode_rewards))
+            current_time = time.clock() - prev_time
+            print("Episode took ", current_time, " seconds")
+            prev_time = time.clock()
             episode_rewards_2.append(0.0)
 
         file_num = re.findall("\d*", args.red_model[-3:])

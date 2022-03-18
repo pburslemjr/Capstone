@@ -52,6 +52,7 @@ episode_rewards_2 = [0.0]
 steps_2 = 0
 prev_time = time.clock()
 current_time = time.clock() - prev_time
+start_time = time.clock()
 
 def run_learner(conn, total_timesteps, iteration, model_num):
 
@@ -96,6 +97,7 @@ def create_callback_1(model, verbose=1):
         global steps
         global prev_time
         global current_time
+        global start_time
 
 
         steps = steps + 1
@@ -105,7 +107,7 @@ def create_callback_1(model, verbose=1):
         if(steps%20480 == 0):
             print("Model: ", _locals["model_num"], "total steps: ", steps, "\nEpisodes Reward = ", episode_rewards[-1], len(episode_rewards))
             current_time = time.clock() - prev_time
-            print("Episode took ", current_time, " seconds")
+            print("Episode took ", current_time, " seconds. Total elapsed: ", time.clock() - start_time)
             prev_time = time.clock()
             episode_rewards.append(0.0)
 
@@ -157,6 +159,7 @@ def create_callback_2(model, verbose=1):
         global steps_2
         global prev_time
         global current_time
+        global start_time
 
         steps_2 = steps_2 + 1
 
@@ -164,7 +167,7 @@ def create_callback_2(model, verbose=1):
         if(steps_2%20480 == 0):
             print("Model: ", _locals["model_num"], "total steps: ", steps_2, "\nEpisodes Reward = ", episode_rewards_2[-1], len(episode_rewards))
             current_time = time.clock() - prev_time
-            print("Episode took ", current_time, " seconds")
+            print("Episode took ", current_time, " seconds. Total elapsed: ", time.clock() - start_time)
             prev_time = time.clock()
             episode_rewards_2.append(0.0)
 

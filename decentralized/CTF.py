@@ -15,6 +15,8 @@ from pygame.math import Vector2
 import random
 from self_play_ppo2 import self_play_ppo2
 from stable_baselines.common import make_vec_env
+import os
+os.environ["SDL_VIDEODRIVER"] = "dummy"
 
 random.seed(1)
 np.random.seed(1)
@@ -162,8 +164,10 @@ class CTF(gym.Env):
         self.alive_red = 0
         self.kill_interval = 0
 
-        self.dist_to_flag = 1.0
-        self.dist_to_base = 0.0
+        self.dist_to_flag = [1.0, 1.0, 1.0, 1.0]
+        self.prev_dist_to_flag = [1.0, 1.0, 1.0, 1.0]
+        self.dist_to_base = [0.0, 0.0, 0.0, 0.0]
+        self.prev_dist_to_base = [0.0, 0.0, 0.0, 0.0]
 
         #Add Obstacles
         for o in gameConsts.obstacles:
@@ -257,7 +261,7 @@ class CTF(gym.Env):
         global_rewards_red = 0.0    #Reward for all Red tanks
 
         C = 10
-        render_freq = 1
+        render_freq = 10
         '''if(self.time_steps % render_freq == 0):
             # screen.fill(gameConsts.BACKGROUND_COLOR) # TODO: replace with grass
             for x in range(0, gameConsts.MAP_WIDTH, gameConsts.BACKGROUND_SIZE):
@@ -355,13 +359,18 @@ class CTF(gym.Env):
 
 
         rew = self.reward(local_rewards[:len(self.BlueTanks)], global_rewards_blue)
+        shaping_rew = []
+        #shaping_rew = np.array([max(100*(1-self.stole_flag)*(self.prev_dist_to_flag - self.dist_to_flag) + 100*self.stole_flag*(self.prev_dist_to_base - self.dist_to_base), -10.0)])
+        for t in range(len(self.BlueTanks)):
+            stole_flag = isinstance(self.BlueTanks[t].flag, Flag)
+            shaping_rew.append(max(100*(1-stole_flag)*(self.prev_dist_to_flag[t] - self.dist_to_flag[t]) + 100*stole_flag*(self.prev_dist_to_base[t] - self.dist_to_base[t]), -10.0))
 
-        shaping_rew = np.array([max(100*(1-self.stole_flag)*(self.prev_dist_to_flag - self.dist_to_flag) + 100*self.stole_flag*(self.prev_dist_to_base - self.dist_to_base), -10.0)])
-        return [observations, [[rew, np.array(shaping_rew)], self.reward(local_rewards[len(self.BlueTanks):], global_rewards_red)], done, {}]
+        return [observations, [rew, np.array(shaping_rew), global_rewards_blue], done, {}]
 
 
     #Get the state of the environment from a tanks frame of reference
     def observation(self, tank):
+        tank_num = tank.tank_num
         obs = [0]*int(self.obs_size/4)
         i = 0
         vals = 3
@@ -378,7 +387,7 @@ class CTF(gym.Env):
         obs[i] = (tank.reload_time - tank.fired - self.obs_limits_low[i]) / (self.obs_limits_high[i] - self.obs_limits_low[i])
         i = i+1
 
-        for obj in self.allTanks:
+        for i, obj in enumerate(self.allTanks):
             if(obj != tank):
                 obs[i] = (abs(obj.position[0] - tank.position[0]) - self.obs_limits_low[i]) / (self.obs_limits_high[i] - self.obs_limits_low[i])
                 i = i+1
@@ -431,13 +440,13 @@ class CTF(gym.Env):
 
         for obj in self.allFlags:
             if(obj.color == "red"):
-                self.prev_dist_to_flag = self.dist_to_flag
-                self.dist_to_flag = (self.get_dist(tank.position[0], tank.position[1], obj.position[0], obj.position[1]) - self.obs_limits_low[i]) / (self.obs_limits_high[i] - self.obs_limits_low[i])
+                self.prev_dist_to_flag[tank_num-1] = self.dist_to_flag[tank_num-1]
+                self.dist_to_flag[tank_num-1] = (self.get_dist(tank.position[0], tank.position[1], obj.position[0], obj.position[1]) - self.obs_limits_low[i]) / (self.obs_limits_high[i] - self.obs_limits_low[i])
 
         for obj in self.allBases:
             if(obj.color == "blue"):
-                self.prev_dist_to_base = self.dist_to_base
-                self.dist_to_base = (self.get_dist(tank.position[0], tank.position[1], obj.position[0], obj.position[1]) - self.obs_limits_low[i]) / (self.obs_limits_high[i] - self.obs_limits_low[i])
+                self.prev_dist_to_base[tank_num-1] = self.dist_to_base[tank_num-1]
+                self.dist_to_base[tank_num-1] = (self.get_dist(tank.position[0], tank.position[1], obj.position[0], obj.position[1]) - self.obs_limits_low[i]) / (self.obs_limits_high[i] - self.obs_limits_low[i])
 
         ob = np.concatenate((np.array(self.obs[int(self.obs_size/4):]), np.array(obs)))
 

@@ -436,6 +436,7 @@ class self_play_ppo2(ActorCriticRLModel):
                                                     writer, self.num_timesteps)
 
                     if self.verbose >= 1 and allow_update:
+                        print("Allows update is true for " + str(model_num))
                         #log rewards and loss
                         print(np.mean(true_reward), np.shape(true_reward))
                         f = open("rewards_"+str(model_num)+".txt", "a+")
@@ -561,8 +562,10 @@ class Runner(AbstractEnvRunner):
         self.update_buffers = allow_update
         return self._run()
 
+#uncomment second line to enable reward phasing
     def phase_condition(self, episode, last_update):
-        return (episode%100==0 and episode!=last_update)
+        return False
+        #return (episode%100==0 and episode!=last_update)
 
 
     def get_phase_step(self):
@@ -678,7 +681,7 @@ class Runner(AbstractEnvRunner):
         last_values = self.model.value(self.obs, self.states, self.dones)
         # discount/bootstrap off value fn
         mb_advs = np.zeros_like(mb_rewards)
-        true_reward = np.copy(mb_unshaped_reward)
+        true_reward = np.copy(mb_rewards)
         last_gae_lam = 0
         for step in reversed(range(self.n_steps)):
             if step == self.n_steps - 1:

@@ -97,7 +97,7 @@ def create_callback_1(model, verbose=1):
         episode_rewards[-1] = episode_rewards[-1] + _locals['rewards']
         #When an episode is over, save episode_reward
         if(steps%20480 == 0):
-            print(_locals["model_num"], steps, "Episodes Reward = ", episode_rewards[-1], len(episode_rewards))
+            print("Model: ", _locals["model_num"], "total steps: ", steps, "\nEpisodes Reward = ", episode_rewards[-1], len(episode_rewards))
             episode_rewards.append(0.0)
 
         file_num = re.findall("\d*", args.blue_model[-3:])
@@ -267,6 +267,7 @@ if __name__ == '__main__':
         #Execute action in the environment
         obs, rewards, dones, infos = env.step(actions)
 
+        #rewards = [rew, shaped_rew, justglobal]
         if(dones):
             obs = env.reset()
 
@@ -275,7 +276,7 @@ if __name__ == '__main__':
 
         #Create and send message to each learning agent with their respective new observations and rewards
         for i in range(training_agents):
-            conn_manager[i][0].put([obs[i], rewards[0][i], dones, infos, actions[(i*3) : (i*3+3)]])
+            conn_manager[i][0].put([obs[i], [rewards[0][i], rewards[1][i], rewards[2]], dones, infos, actions[(i*3) : (i*3+3)]])
 
         for i in range(0, training_agents):
             conn_manager[i][0].join()

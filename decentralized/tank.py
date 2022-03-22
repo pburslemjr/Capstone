@@ -1,4 +1,3 @@
-import pygame as pg
 from gameObject import GameObject
 from pygame.math import Vector2
 from bullet import Bullet
@@ -6,6 +5,7 @@ import math
 import gameConsts
 import random
 
+import pygame as pg
 random.seed(1)
 
 #screen = gameConsts.screen
@@ -25,8 +25,10 @@ class Tank(GameObject):
       self.startingPosition = position
       self.tank_num = number
       self.selected = False
-      self.font = pg.font.SysFont(gameConsts.TANK_FONT, gameConsts.TANK_FONT_SIZE)
-      self.text = self.font.render(str(number), False, gameConsts.SELECTED_COLOR)
+      self.font = None
+      if gameConsts.render:
+          self.font = pg.font.SysFont(gameConsts.TANK_FONT, gameConsts.TANK_FONT_SIZE)
+          self.text = self.font.render(str(number), False, gameConsts.SELECTED_COLOR)
       self.flag = None
       self.respawn = False
       self.timeOfDeath = 0
@@ -46,7 +48,8 @@ class Tank(GameObject):
       randomAngle = random.randint(0, 360)
       self.direction.rotate_ip(randomAngle)
       self.angle = round((self.angle + randomAngle) % 360, 2)
-      self.image = pg.transform.rotate(self.original_image, -self.angle)
+      if gameConsts.render:
+          self.image = pg.transform.rotate(self.original_image, -self.angle)
       self.rect = self.image.get_rect(center=self.rect.center)
 
     def update(self, enable):

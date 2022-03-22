@@ -1,4 +1,3 @@
-import pygame as pg
 import sys
 import json
 import argparse
@@ -19,7 +18,10 @@ with open ('maps/blocks_1.json') as f:
 
 MAP_WIDTH = data['width']
 MAP_HEIGHT = data['height']
-screen = pg.display.set_mode((MAP_WIDTH, MAP_HEIGHT))
+render = data['render']
+if render:
+    import pygame as pg
+    screen = pg.display.set_mode((MAP_WIDTH, MAP_HEIGHT))
 MAP_BACKGROUND = data['background']
 obstacles = data['obstacles']
 players = data['players']

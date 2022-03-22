@@ -1,5 +1,4 @@
 import math
-import pygame as pg
 from tank import Tank
 from bullet import Bullet
 from obstacle import Obstacle
@@ -18,6 +17,8 @@ from stable_baselines.common import make_vec_env
 import os
 os.environ["SDL_VIDEODRIVER"] = "dummy"
 
+if gameConsts.render:
+    import pygame as pg
 random.seed(1)
 np.random.seed(1)
 
@@ -114,6 +115,8 @@ class CTF(gym.Env):
 
     def render(self):
         # screen.fill(gameConsts.BACKGROUND_COLOR) # TODO: replace with grass
+        if not gameConsts.render:
+            return
         for x in range(0, gameConsts.MAP_WIDTH, gameConsts.BACKGROUND_SIZE):
             for y in range(0, gameConsts.MAP_WIDTH, gameConsts.BACKGROUND_SIZE):
                 self.screen.blit(self.bg, (x,y))
@@ -136,15 +139,20 @@ class CTF(gym.Env):
             obj1.getSprite().draw(self.screen)
 
         pg.display.flip()
+    #uncomment to limit to certain FPS
+    #    self.clock.tick(10)
 
     def reset(self):
 
-        pg.init()
-        self.screen = gameConsts.screen
+        if gameConsts.render:
+            pg.init()
+            self.clock = pg.time.Clock()
+            self.screen = gameConsts.screen
         self.selectLast = -gameConsts.SELECT_ADD_TIME # negative to allow immediate select
-        self.scoreboard = Scoreboard(gameConsts.players)
-        self.bg = pg.image.load(gameConsts.MAP_BACKGROUND)
-        self.bg = pg.transform.scale(self.bg, (gameConsts.BACKGROUND_SIZE, gameConsts.BACKGROUND_SIZE))
+        if gameConsts.render:
+            self.scoreboard = Scoreboard(gameConsts.players)
+            self.bg = pg.image.load(gameConsts.MAP_BACKGROUND)
+            self.bg = pg.transform.scale(self.bg, (gameConsts.BACKGROUND_SIZE, gameConsts.BACKGROUND_SIZE))
         self.gameObjects = []
 
         self.allTanks = []
@@ -211,7 +219,8 @@ class CTF(gym.Env):
                 self.screen.blit(self.bg, (x,y))'''
 
 
-        self.scoreboard.update()
+        if gameConsts.render:
+            self.scoreboard.update()
         #Place objects on top of background
         for obj1 in self.gameObjects:
             for obj2 in self.gameObjects:
@@ -243,7 +252,8 @@ class CTF(gym.Env):
             #obj1.getSprite().draw(self.screen)
 
 
-        pg.display.flip()
+        if gameConsts.render:
+            pg.display.flip()
 
         observations = []
         for obj in self.allTanks:
@@ -289,7 +299,7 @@ class CTF(gym.Env):
                 if(a == 1):
                     if(self.allTanks[t].fired == 0 and self.allTanks[t].respawn == False):
                         self.allBullets.append(self.allTanks[t].fire())
-                        local_rewards[t] = -1.0
+                        #local_rewards[t] = -1.0
 
                 t = t+1
 
@@ -308,7 +318,8 @@ class CTF(gym.Env):
         for ai in self.allAIPlayers:
             ai.control()
 
-        self.scoreboard.update()
+        if gameConsts.render:
+            self.scoreboard.update()
         for obj1 in self.gameObjects:
             for obj2 in self.gameObjects:
                 if obj1 is obj2:
@@ -346,24 +357,32 @@ class CTF(gym.Env):
             #obj1.getSprite().draw(self.screen)
 
 
-        for t in self.allTanks:
-            self.scoreboard.updateScore(self.team_1_score, self.team_2_score)
+        if gameConsts.render:
+            for t in self.allTanks:
+                self.scoreboard.updateScore(self.team_1_score, self.team_2_score)
 
         #pg.display.flip()
         observations = []
         for obj in self.allTanks:
             observations.append(self.observation(obj))
 
-        if(self.time_steps % render_freq == 0):
-            self.render()
 
+        #swap lines below if you want to use local reward (currently it just penalizes shooting)
+        rew = np.asarray([global_rewards_blue, global_rewards_blue])
+        #rew = self.reward(local_rewards[:len(self.BlueTanks)], global_rewards_blue)
 
-        rew = self.reward(local_rewards[:len(self.BlueTanks)], global_rewards_blue)
         shaping_rew = []
         #shaping_rew = np.array([max(100*(1-self.stole_flag)*(self.prev_dist_to_flag - self.dist_to_flag) + 100*self.stole_flag*(self.prev_dist_to_base - self.dist_to_base), -10.0)])
         for t in range(len(self.BlueTanks)):
             stole_flag = isinstance(self.BlueTanks[t].flag, Flag)
-            shaping_rew.append(max(100*(1-stole_flag)*(self.prev_dist_to_flag[t] - self.dist_to_flag[t]) + 100*stole_flag*(self.prev_dist_to_base[t] - self.dist_to_base[t]), -10.0))
+            if self.BlueTanks[t].position[0] != gameConsts.players[0]["tanks"][t]['position']['x'] and self.BlueTanks[t].position[1] != gameConsts.players[0]["tanks"][t]['position']['y']:
+                shaping_rew.append(max(100*(1-stole_flag)*(self.prev_dist_to_flag[t] - self.dist_to_flag[t]) + 100*stole_flag*(self.prev_dist_to_base[t] - self.dist_to_base[t]), -10.0))
+            else:
+                shaping_rew.append(0.0)
+
+
+        if(self.time_steps % render_freq == 0):
+            self.render()
 
         return [observations, [rew, np.array(shaping_rew), global_rewards_blue], done, {}]
 
@@ -552,7 +571,8 @@ class CTF(gym.Env):
             o1.setFlag(o2)
             o2.setPickedUp(o1)
         if(o1Tank and isinstance(o2, Base) and isinstance(o1.flag, Flag) and o1.color == o2.color):
-            self.scoreboard.updateScore(o1.color, gameConsts.POINTS_RETURNING_FLAG)
+            if gameConsts.render:
+                self.scoreboard.updateScore(o1.color, gameConsts.POINTS_RETURNING_FLAG)
             o1.flag.respawn()
             o1.flag.dropped()
             o1.setFlag(None)
@@ -560,6 +580,7 @@ class CTF(gym.Env):
             if(self.BlueTanks[0].color == o1.color):
                 global_rewards_blue = global_rewards_blue + 100
                 global_rewards_red = global_rewards_red - 100
+                print("STOLEN FLAG")
                 self.team_1_score += 100
             else:
                 global_rewards_red = global_rewards_red + 100

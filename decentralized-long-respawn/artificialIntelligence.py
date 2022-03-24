@@ -48,17 +48,12 @@ class AI():
       tankTarget = {'dist': math.inf, 'enemyTank': None}
       for e in self.enemyTanks:
         dist = math.hypot(e.position[0] - t.position[0], e.position[1] - t.position[1])
-        if (not e.ghost and dist < tankTarget['dist']):
+        if (not e.ghost and not e.respawn and dist < tankTarget['dist']):
           tankTarget['enemyTank'] = e
           tankTarget['dist'] = dist
 
       random.shuffle(self.enemyFlags)
       attackMode = True
-      for f in self.enemyFlags:
-        if(f.pickedUpBy is None):
-          #t.setDestination(f.position)
-          #attackMode = False
-          continue
 
 
       if((tankTarget['enemyTank'] is not None and (dist < gameConsts.SIGHT_ENEMY_RANGE or attackMode))):
@@ -66,4 +61,11 @@ class AI():
         if(tankTarget['dist'] < gameConsts.FIRE_ENEMY_RANGE):
           if(t.fired == 0):
             t.fire()
+      else:
+        for f in self.enemyFlags:
+            if(f.pickedUpBy is None):
+                t.setDestination(f.position)
+                attackMode = False
+                continue
+
         continue

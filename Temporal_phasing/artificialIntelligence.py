@@ -40,9 +40,9 @@ class AI():
     for t in self.myTanks:
       if (t.respawn):
         continue
-      '''if (isinstance(t.flag, Flag)):
+      if (isinstance(t.flag, Flag)):
         t.setDestination(self.myBase.position)
-        continue'''
+        continue
 
       # find closest tank
       tankTarget = {'dist': math.inf, 'enemyTank': None}
@@ -56,13 +56,14 @@ class AI():
       attackMode = True
       for f in self.enemyFlags:
         if(f.pickedUpBy is None):
-          #t.setDestination(f.position)
-          #attackMode = False
+          t.setDestination(f.position)
+          attackMode = False
           continue
 
 
       if((tankTarget['enemyTank'] is not None and (dist < gameConsts.SIGHT_ENEMY_RANGE or attackMode))):
         t.setDestination(tankTarget['enemyTank'].position)
+
         if(tankTarget['dist'] < gameConsts.FIRE_ENEMY_RANGE):
           if(t.fired == 0):
             t.fire()

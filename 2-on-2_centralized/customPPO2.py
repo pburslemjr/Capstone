@@ -489,6 +489,7 @@ class Runner(AbstractEnvRunner):
         ep_infos = []
         traj_val = 0.0
         expert_traj_val = 0.0
+        rew_fraction = 1.0
         loss = 0.0
         self.ep_reward = []
         self.exp_ep_reward = []

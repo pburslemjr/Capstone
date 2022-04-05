@@ -207,7 +207,8 @@ class CTF(gym.Env):
                     obj1.update(1)
             else:
                 obj1.update()
-            obj1.getSprite().draw(self.screen)
+            if gameConsts.render:
+                obj1.getSprite().draw(self.screen)
 
 
         if gameConsts.render:
@@ -502,7 +503,8 @@ class CTF(gym.Env):
             o1.setFlag(o2)
             o2.setPickedUp(o1)
         if(o1Tank and isinstance(o2, Base) and isinstance(o1.flag, Flag) and o1.color == o2.color):
-            self.scoreboard.updateScore(o1.color, gameConsts.POINTS_RETURNING_FLAG)
+            if gameConsts.render:
+                self.scoreboard.updateScore(o1.color, gameConsts.POINTS_RETURNING_FLAG)
             o1.flag.respawn()
             o1.flag.dropped()
             o1.setFlag(None)

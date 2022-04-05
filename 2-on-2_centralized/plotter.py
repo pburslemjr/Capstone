@@ -19,7 +19,7 @@ def readFile(fileName):
 
 def getColumnAtIndex(index, arr):
     res = []
-    numOfDataPointsPerLine = 3
+    numOfDataPointsPerLine = 4
     for i in range(len(arr)):
         if i % numOfDataPointsPerLine == index:
             res.append(arr[i])

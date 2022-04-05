@@ -1,4 +1,5 @@
 {
+  "render":false,
   "width": 800,
   "height": 800,
   "background": "img/grass(100x100).png",

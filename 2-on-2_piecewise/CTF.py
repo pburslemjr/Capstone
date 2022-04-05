@@ -93,12 +93,14 @@ class CTF(gym.Env):
 
     def reset(self):
 
-        pg.init()
-        self.screen = gameConsts.screen
+        if gameConsts.render:
+            pg.init()
+            self.screen = gameConsts.screen
         self.selectLast = -gameConsts.SELECT_ADD_TIME # negative to allow immediate select
-        self.scoreboard = Scoreboard(gameConsts.players)
-        self.bg = pg.image.load(gameConsts.MAP_BACKGROUND)
-        self.bg = pg.transform.scale(self.bg, (gameConsts.BACKGROUND_SIZE, gameConsts.BACKGROUND_SIZE))
+        if gameConsts.render:
+            self.scoreboard = Scoreboard(gameConsts.players)
+            self.bg = pg.image.load(gameConsts.MAP_BACKGROUND)
+            self.bg = pg.transform.scale(self.bg, (gameConsts.BACKGROUND_SIZE, gameConsts.BACKGROUND_SIZE))
         self.gameObjects = []
 
         #List of all tanks in the environment
@@ -171,12 +173,13 @@ class CTF(gym.Env):
 
         #Display background
         # screen.fill(gameConsts.BACKGROUND_COLOR) # TODO: replace with grass
-        for x in range(0, gameConsts.MAP_WIDTH, gameConsts.BACKGROUND_SIZE):
-            for y in range(0, gameConsts.MAP_WIDTH, gameConsts.BACKGROUND_SIZE):
-                self.screen.blit(self.bg, (x,y))
+        if gameConsts.render:
+            for x in range(0, gameConsts.MAP_WIDTH, gameConsts.BACKGROUND_SIZE):
+                for y in range(0, gameConsts.MAP_WIDTH, gameConsts.BACKGROUND_SIZE):
+                    self.screen.blit(self.bg, (x,y))
 
 
-        self.scoreboard.update()
+            self.scoreboard.update()
         #Place objects on top of background
         for obj1 in self.gameObjects:
             for obj2 in self.gameObjects:
@@ -207,7 +210,8 @@ class CTF(gym.Env):
             obj1.getSprite().draw(self.screen)
 
 
-        pg.display.flip()
+        if gameConsts.render:
+            pg.display.flip()
         self.obs = [0]*self.obs_size
         self.obs = self.observation()   #Get current observation
         return self.obs
@@ -223,9 +227,10 @@ class CTF(gym.Env):
 
         C = 10
         # screen.fill(gameConsts.BACKGROUND_COLOR) # TODO: replace with grass
-        for x in range(0, gameConsts.MAP_WIDTH, gameConsts.BACKGROUND_SIZE):
-            for y in range(0, gameConsts.MAP_WIDTH, gameConsts.BACKGROUND_SIZE):
-                self.screen.blit(self.bg, (x,y))
+        if gameConsts.render:
+            for x in range(0, gameConsts.MAP_WIDTH, gameConsts.BACKGROUND_SIZE):
+                for y in range(0, gameConsts.MAP_WIDTH, gameConsts.BACKGROUND_SIZE):
+                    self.screen.blit(self.bg, (x,y))
 
         done = False
         #Set length of episode
@@ -264,7 +269,8 @@ class CTF(gym.Env):
             ai.control()
 
 
-        self.scoreboard.update()
+        if gameConsts.render:
+            self.scoreboard.update()
         for obj1 in self.gameObjects:
             for obj2 in self.gameObjects:
                 if obj1 is obj2:
@@ -296,13 +302,15 @@ class CTF(gym.Env):
                     obj1.update(1)
             else:
                 obj1.update()
-            obj1.getSprite().draw(self.screen)
+            if gameConsts.render:
+                obj1.getSprite().draw(self.screen)
 
 
-        for t in self.allTanks:
-            self.scoreboard.updateScore(self.team_1_score, self.team_2_score)
+        if gameConsts.render:
+            for t in self.allTanks:
+                self.scoreboard.updateScore(self.team_1_score, self.team_2_score)
 
-        pg.display.flip()
+            pg.display.flip()
         self.obs = self.observation()
 
         #calculate the shaped rewards based on change in distance to flag/base

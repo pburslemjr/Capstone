@@ -112,6 +112,8 @@ class CTF(gym.Env):
 
     def render(self):
         # screen.fill(gameConsts.BACKGROUND_COLOR) # TODO: replace with grass
+        if not gameConsts.render:
+            return
         for x in range(0, gameConsts.MAP_WIDTH, gameConsts.BACKGROUND_SIZE):
             for y in range(0, gameConsts.MAP_WIDTH, gameConsts.BACKGROUND_SIZE):
                 self.screen.blit(self.bg, (x,y))
@@ -137,12 +139,15 @@ class CTF(gym.Env):
 
     def reset(self):
 
-        pg.init()
-        self.screen = gameConsts.screen
+        if gameConsts.render:
+            pg.init()
+            self.screen = gameConsts.screen
         self.selectLast = -gameConsts.SELECT_ADD_TIME # negative to allow immediate select
-        self.scoreboard = Scoreboard(gameConsts.players)
-        self.bg = pg.image.load(gameConsts.MAP_BACKGROUND)
-        self.bg = pg.transform.scale(self.bg, (gameConsts.BACKGROUND_SIZE, gameConsts.BACKGROUND_SIZE))
+
+        if gameConsts.render:
+            self.scoreboard = Scoreboard(gameConsts.players)
+            self.bg = pg.image.load(gameConsts.MAP_BACKGROUND)
+            self.bg = pg.transform.scale(self.bg, (gameConsts.BACKGROUND_SIZE, gameConsts.BACKGROUND_SIZE))
         self.gameObjects = []
 
         self.allTanks = []
@@ -201,7 +206,9 @@ class CTF(gym.Env):
                 self.screen.blit(self.bg, (x,y))'''
 
 
-        self.scoreboard.update()
+
+        if gameConsts.render:
+            self.scoreboard.update()
         #Place objects on top of background
         for obj1 in self.gameObjects:
             for obj2 in self.gameObjects:
@@ -232,7 +239,8 @@ class CTF(gym.Env):
             #obj1.getSprite().draw(self.screen)
 
 
-        pg.display.flip()
+        if gameConsts.render:
+            pg.display.flip()
 
         observations = []
         for obj in self.allTanks:
@@ -297,7 +305,8 @@ class CTF(gym.Env):
         for ai in self.allAIPlayers:
             ai.control()
 
-        self.scoreboard.update()
+        if gameConsts.render:
+            self.scoreboard.update()
         for obj1 in self.gameObjects:
             for obj2 in self.gameObjects:
                 if obj1 is obj2:
@@ -336,8 +345,9 @@ class CTF(gym.Env):
             #obj1.getSprite().draw(self.screen)
 
 
-        for t in self.allTanks:
-            self.scoreboard.updateScore(self.team_1_score, self.team_2_score)
+        if gameConsts.render:
+            for t in self.allTanks:
+                self.scoreboard.updateScore(self.team_1_score, self.team_2_score)
 
         #pg.display.flip()
         observations = []
@@ -526,7 +536,8 @@ class CTF(gym.Env):
             o1.setFlag(o2)
             o2.setPickedUp(o1)
         if(o1Tank and isinstance(o2, Base) and isinstance(o1.flag, Flag) and o1.color == o2.color):
-            self.scoreboard.updateScore(o1.color, gameConsts.POINTS_RETURNING_FLAG)
+            if gameConsts.render:
+                self.scoreboard.updateScore(o1.color, gameConsts.POINTS_RETURNING_FLAG)
             o1.flag.respawn()
             o1.flag.dropped()
             o1.setFlag(None)

@@ -51,8 +51,8 @@ episode_rewards_2 = [0.0]
 steps_2 = 0
 
 def run_learner(conn, total_timesteps, iteration, model_num):
-	
-       
+
+
 	policy_kwargs = dict(net_arch=[512, 512])
 	model = self_play_ppo2(MlpPolicy, conn, verbose=1, seed = 1, n_steps = 20480, model_num = 1, tensorboard_log = "log", policy_kwargs=policy_kwargs)
 
@@ -91,7 +91,7 @@ def create_callback_1(model, verbose=1):
         global last_saved
         global episode_rewards
         global steps
-        
+
         steps = steps + 1
 
         episode_rewards[-1] = episode_rewards[-1] + _locals['rewards']
@@ -146,14 +146,14 @@ def create_callback_2(model, verbose=1):
         global last_saved_2
         global episode_rewards_2
         global steps_2
-        
+
         steps_2 = steps_2 + 1
-        
+
         episode_rewards_2[-1] = episode_rewards_2[-1] + _locals['rewards']
         if(steps_2%20480 == 0):
             print(_locals["model_num"], steps_2, "Episodes Reward = ", episode_rewards_2[-1], len(episode_rewards_2))
             episode_rewards_2.append(0.0)
- 
+
         file_num = re.findall("\d*", args.red_model[-3:])
         file_num = [x for x in file_num if x != '']
         if(file_num != []):
@@ -192,7 +192,7 @@ if __name__ == '__main__':
 		policy_kwargs = dict(net_arch=[512, 512])
 		model_1 = self_play_ppo2(MlpPolicy, env, verbose=1, seed = 1, n_steps = 20480, tensorboard_log = "log", policy_kwargs=policy_kwargs)
 		print("Train from scratch")
-    
+
 	model_1.n_steps = 20480
 	model_1.gamma = 0.99
 	model_1.lam = 0.98
@@ -210,7 +210,7 @@ if __name__ == '__main__':
 		policy_kwargs = dict(net_arch=[512, 512])
 		model_2 = self_play_ppo2(MlpPolicy, env, verbose=1, seed = 1, n_steps = 20480, tensorboard_log = "log", policy_kwargs=policy_kwargs)
 		print("Train from scratch")
-            
+
 	model_2.n_steps = 20480
 	model_2.gamma = 0.99
 	model_2.lam = 0.98
@@ -251,7 +251,7 @@ if __name__ == '__main__':
 
 	for i in range(0, training_agents):
 		conn_manager[i][0].join()
-	
+
 	#For each step
 	for j in range(20000*iterations):
 		#Get the actions taken by each agent
@@ -265,6 +265,7 @@ if __name__ == '__main__':
 		#Execute action in the environment
 		obs, rewards, dones, infos = env.step(actions)
 
+
 		if(dones):
 			obs = env.reset()
 
@@ -273,14 +274,14 @@ if __name__ == '__main__':
 
 		#Create and send message to each learning agent with their respective new observations and rewards
 		for i in range(training_agents):
-			conn_manager[i][0].put([obs[i], rewards[i], dones, infos, actions[(i*3) : (i*3+3)]])
-		
+			conn_manager[i][0].put([obs[i], [rewards[0], rewards[0]], dones, infos, actions[(i*3) : (i*3+3)]])
+
 		for i in range(0, training_agents):
 			conn_manager[i][0].join()
 
 	for i in range(0, training_agents):
 		conn_manager[i][0].join()
-		processes[i].join()		
-	
-	
+		processes[i].join()
+
+
 

@@ -49,6 +49,7 @@ class Tank(GameObject):
       self.image = pg.transform.rotate(self.original_image, -self.angle)
       self.rect = self.image.get_rect(center=self.rect.center)
 
+    #enable lets the tank move by setting the speed proportional to destination
     def update(self, enable):
         xDiff = self.destination[0] - self.position[0]
         yDiff = self.destination[1] - self.position[1]

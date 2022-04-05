@@ -13,7 +13,7 @@ import gym
 from gym import spaces
 from pygame.math import Vector2
 import random
-
+PHASE_AT_EPISODE = 200
 random.seed(1)
 np.random.seed(1)
 
@@ -39,6 +39,7 @@ class CTF(gym.Env):
         #Team scores
         self.team_1_score = 0.0
         self.team_2_score = 0.0
+        self.rew_frac = 1.0
 
         #Setting maximum and minimum value limits on each observation
         i=0
@@ -231,6 +232,7 @@ class CTF(gym.Env):
         if(self.time_steps == 20000):
             done = True
             self.episode = self.episode + 1
+            self.change_rew_frac(self.episode)
 
         t = 0
         for i,a in enumerate(actions):
@@ -316,9 +318,22 @@ class CTF(gym.Env):
         #combine all rewards and send to model
         local_reward = sum(local_rewards)
         shaped_rew += local_reward
-        rew_frac = 1.0
-        all_rew = global_rewards + rew_frac*(shaped_rew)
-        return [self.obs, all_rew, done, {"shaped":shaped_rew, "unshaped":global_rewards, "frac": rew_frac}]
+
+        all_rew = global_rewards + self.rew_frac*(shaped_rew)
+        return [self.obs, all_rew, done, {"shaped":shaped_rew, "unshaped":global_rewards, "frac": self.rew_frac}]
+
+
+    def change_rew_frac(self, episode):
+        if (self.rew_frac <= 0.0):
+            self.rew_frac = 0.0
+            return
+
+        global PHASE_AT_EPISODE
+        if (episode != 0 and episode % PHASE_AT_EPISODE == 0):
+            self.rew_frac -= 0.1
+
+
+
 
 
     def observation(self):

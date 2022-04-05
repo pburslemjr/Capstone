@@ -25,8 +25,9 @@ class Tank(GameObject):
       self.startingPosition = position
       self.tank_num = number
       self.selected = False
-      self.font = pg.font.SysFont(gameConsts.TANK_FONT, gameConsts.TANK_FONT_SIZE)
-      self.text = self.font.render(str(number), False, gameConsts.SELECTED_COLOR)
+      if gameConsts.render:
+          self.font = pg.font.SysFont(gameConsts.TANK_FONT, gameConsts.TANK_FONT_SIZE)
+          self.text = self.font.render(str(number), False, gameConsts.SELECTED_COLOR)
       self.flag = None
       self.respawn = False
       self.timeOfDeath = 0
@@ -38,7 +39,7 @@ class Tank(GameObject):
       self.ghost_mode = 0
 
       self.speed = 0.0
-      self.angleSpeed = 0.0 
+      self.angleSpeed = 0.0
 
       super().__init__(image, position, size, direction, speed, angle)
 
@@ -46,8 +47,9 @@ class Tank(GameObject):
       randomAngle = random.randint(0, 360)
       self.direction.rotate_ip(randomAngle)
       self.angle = round((self.angle + randomAngle) % 360, 2)
-      self.image = pg.transform.rotate(self.original_image, -self.angle)
-      self.rect = self.image.get_rect(center=self.rect.center)
+      if gameConsts.render:
+          self.image = pg.transform.rotate(self.original_image, -self.angle)
+          self.rect = self.image.get_rect(center=self.rect.center)
 
   def update(self, enable):
     xDiff = self.destination[0] - self.position[0]
@@ -86,9 +88,9 @@ class Tank(GameObject):
       pg.draw.rect(screen, gameConsts.SELECTED_COLOR, [self.position[0]-self.radius,self.position[1]-self.radius,2*self.radius,2*self.radius], 1)
     # self.text = self.font.render(f'{str(self.angle)}-{str(self.direction)}', False, gameConsts.SELECTED_COLOR) # DEBUG
     screen.blit(self.text, (self.position[0], self.position[1] + self.radius))'''
-  
 
- 
+
+
   def getMaxRotation(self, desiredAngle):
     if (desiredAngle > gameConsts.TANK_MAX_ROTATION):
       return gameConsts.TANK_MAX_ROTATION
@@ -99,7 +101,7 @@ class Tank(GameObject):
 
   def setDestination(self, pos):
     self.destination = pos
-  
+
   def fire(self):
     self.fired = 1
     bulletRadius = gameConsts.BULLET_SIZE / 2 / math.cos(45)

@@ -21,7 +21,6 @@ from customPPO2 import CustomPPO2
 
 from stable_baselines.common.policies import MlpPolicy
 from gym import spaces
-import scipy
 
 random.seed(1)
 np.random.seed(1)
@@ -103,7 +102,7 @@ class self_play_ppo2(ActorCriticRLModel):
         self.value = None
         self.n_batch = None
         self.summary = None
-
+        
 
         super().__init__(policy=policy, env=env, verbose=verbose, requires_vec_env=True,
                          _init_setup_model=_init_setup_model, policy_kwargs=policy_kwargs,
@@ -160,9 +159,6 @@ class self_play_ppo2(ActorCriticRLModel):
                     self.old_vpred_ph = tf.placeholder(tf.float32, [None], name="old_vpred_ph")
                     self.learning_rate_ph = tf.placeholder(tf.float32, [], name="learning_rate_ph")
                     self.clip_range_ph = tf.placeholder(tf.float32, [], name="clip_range_ph")
-                    self.AI_used = tf.placeholder(tf.float32, [None], name="AI_used")
-                    self.RL_used = tf.placeholder(tf.float32, [None], name="RL_used")
-                    self.Importance_weight = tf.placeholder(tf.float32, [], name="Importance_weight")
 
                     neglogpac = train_model.proba_distribution.neglogp(self.action_ph)
                     self.entropy = tf.reduce_mean(train_model.proba_distribution.entropy())
@@ -198,19 +194,10 @@ class self_play_ppo2(ActorCriticRLModel):
                     self.vf_loss = .5 * tf.reduce_mean(tf.maximum(vf_losses1, vf_losses2))
 
                     ratio = tf.exp(self.old_neglog_pac_ph - neglogpac)
-
-                    #Normal PPO policy loss
                     pg_losses = -self.advs_ph * ratio
                     pg_losses2 = -self.advs_ph * tf.clip_by_value(ratio, 1.0 - self.clip_range_ph, 1.0 +
                                                                   self.clip_range_ph)
-                    #self.pg_loss = tf.reduce_mean(tf.maximum(pg_losses, pg_losses2))
-
-                    #Applied importance sampling
-                    self.Z = tf.reduce_sum(tf.maximum(self.AI_used*ratio, tf.clip_by_value(self.AI_used*ratio, 1.0 - self.clip_range_ph, 1.0 + self.clip_range_ph)))
-                    self.pg_sample_loss = (tf.reduce_sum(tf.maximum(self.AI_used*pg_losses, self.AI_used*pg_losses2)) / self.Z) + (self.Importance_weight)*tf.log(self.Z)
-                    self.pg_rl_loss = tf.reduce_mean(tf.maximum(self.RL_used*pg_losses, self.RL_used*pg_losses2))
-                    self.pg_loss = self.pg_sample_loss + self.pg_rl_loss
-
+                    self.pg_loss = tf.reduce_mean(tf.maximum(pg_losses, pg_losses2))
                     self.approxkl = .5 * tf.reduce_mean(tf.square(neglogpac - self.old_neglog_pac_ph))
                     self.clipfrac = tf.reduce_mean(tf.cast(tf.greater(tf.abs(ratio - 1.0),
                                                                       self.clip_range_ph), tf.float32))
@@ -270,8 +257,8 @@ class self_play_ppo2(ActorCriticRLModel):
 
                 self.summary = tf.summary.merge_all()
 
-    #This function is used to pass the data to calculate the various loss values, log and return them
-    def _train_step(self, learning_rate, cliprange, obs, returns, masks, actions, values, neglogpacs, AI_used, imp_weight, update,
+    #This function is used to pass the data to calculate the various loss values, log and return them 
+    def _train_step(self, learning_rate, cliprange, obs, returns, masks, actions, values, neglogpacs, update,
                     writer, states=None, cliprange_vf=None):
         """
         Training of PPO2 Algorithm
@@ -293,12 +280,10 @@ class self_play_ppo2(ActorCriticRLModel):
         """
         advs = returns - values
         advs = (advs - advs.mean()) / (advs.std() + 1e-8)
-        RL_used = np.ones(AI_used.shape) - AI_used
-
         td_map = {self.train_model.obs_ph: obs, self.action_ph: actions,
                   self.advs_ph: advs, self.rewards_ph: returns,
                   self.learning_rate_ph: learning_rate, self.clip_range_ph: cliprange,
-                  self.old_neglog_pac_ph: neglogpacs, self.old_vpred_ph: values, self.AI_used: AI_used, self.RL_used: RL_used, self.Importance_weight: imp_weight}
+                  self.old_neglog_pac_ph: neglogpacs, self.old_vpred_ph: values}
         if states is not None:
             td_map[self.train_model.states_ph] = states
             td_map[self.train_model.dones_ph] = masks
@@ -357,13 +342,6 @@ class self_play_ppo2(ActorCriticRLModel):
 
             callback.on_training_start(locals(), globals())
 
-
-            #We start by training model 1 and not allowing model 2 to update
-            if(model_num == 1):
-                allow_update = 1
-            else:
-                allow_update = 0
-
             for update in range(1, n_updates + 1):
                 assert self.n_batch % self.nminibatches == 0, ("The number of minibatches (`nminibatches`) "
 		                                                       "is not a factor of the total number of samples "
@@ -376,8 +354,15 @@ class self_play_ppo2(ActorCriticRLModel):
                 lr_now = self.learning_rate(frac)
                 cliprange_now = self.cliprange(frac)
                 cliprange_vf_now = cliprange_vf(frac)
-
-		#Choose whether the model will be trained in this step or not. Every switch_freq steps the training shifts between model 1 and model 2
+ 
+		#Choose whether the model will be trained in this step or not
+		#In this case since we are only training one of the models, only model_1 is set to allow. Model_2 will only predict actions but will not be trained further on that data.
+                '''if(model_num == 1):
+                    allow_update = 1
+                else:
+                    allow_update = 0'''
+                    
+                #If you wish to execute self-play, where both the models switch between learning and predicting cycles, then comment the above code and uncomment below code while setting switch_freq to the number of steps desired between switches
                 if(update%(switch_freq//self.n_batch) == 0):
                     if(allow_update == 1):
                         allow_update = 0
@@ -398,7 +383,7 @@ class self_play_ppo2(ActorCriticRLModel):
                 if(allow_update):
 
                     # Unpack
-                    obs, returns, masks, actions, values, neglogpacs, states, ep_infos, true_reward, AI_used, imp_weight, policy_prob  = rollout
+                    obs, returns, masks, actions, values, neglogpacs, states, ep_infos, true_reward = rollout
 
                     callback.on_rollout_end()
 
@@ -418,8 +403,8 @@ class self_play_ppo2(ActorCriticRLModel):
                                                                                 self.n_batch + start) // batch_size)
                                 end = start + batch_size
                                 mbinds = inds[start:end]
-                                slices = (arr[mbinds] for arr in (obs, returns, masks, actions, values, neglogpacs, AI_used))
-                                mb_loss_vals.append(self._train_step(lr_now, cliprange_now, *slices, imp_weight, writer=writer,
+                                slices = (arr[mbinds] for arr in (obs, returns, masks, actions, values, neglogpacs))
+                                mb_loss_vals.append(self._train_step(lr_now, cliprange_now, *slices, writer=writer,
                                                                      update=timestep, cliprange_vf=cliprange_vf_now))
                     '''else:  # recurrent version
                         update_fac = max(self.n_batch // self.nminibatches // self.noptepochs // self.n_steps, 1)
@@ -444,18 +429,18 @@ class self_play_ppo2(ActorCriticRLModel):
                     loss_vals = np.mean(mb_loss_vals, axis=0)
                     t_now = time.time()
                     fps = int(self.n_batch / (t_now - t_start))
-
+    
                     if writer is not None:
                         total_episode_reward_logger(self.episode_reward,
                                                     true_reward.reshape((self.n_envs, self.n_steps)),
                                                     masks.reshape((self.n_envs, self.n_steps)),
                                                     writer, self.num_timesteps)
-
+    
                     if self.verbose >= 1 and allow_update:
                         #log rewards and loss
                         print(np.mean(true_reward), np.shape(true_reward))
                         f = open("rewards_"+str(model_num)+".txt", "a+")
-                        f.write(str(np.mean(true_reward)) + "," + str(policy_prob) + "\n")
+                        f.write(str(np.mean(true_reward)) + "\n")
                         f.close()
                         explained_var = explained_variance(values, returns)
                         logger.logkv("serial_timesteps", update * self.n_steps)
@@ -547,9 +532,10 @@ class Runner(AbstractEnvRunner):
         n_envs = env.num_envs
         self.batch_ob_shape = (n_envs * n_steps,) + env.observation_space.shape
         self.obs = np.zeros((n_envs,) + env.observation_space.shape, dtype=env.observation_space.dtype.name)
+        #self.obs[:] = env.reset()
         self.obs = conn[0].get()
+        #print(self.obs)
         conn[0].task_done()
-
         self.n_steps = n_steps
         self.states = model.initial_state
         self.dones = [False for _ in range(n_envs)]
@@ -561,15 +547,6 @@ class Runner(AbstractEnvRunner):
         self.gamma = gamma
         self.conn = conn
 
-        self.policy_prob = 0.0
-        self.norm_w = 1e-3
-        self.last_trust_update = -1
-        self.prev_mean_reward = 0.0
-        self.prev_ep_reward = 0.0
-        self.cur_mean_reward = 0.0
-        self.mean_updates = 1
-        self.ep_reward = []
-
     def run(self, model_num, allow_update, callback: Optional[BaseCallback] = None) -> Any:
         """
         Collect experience.
@@ -579,18 +556,9 @@ class Runner(AbstractEnvRunner):
         """
         self.callback = callback
         self.continue_training = True
-        self.model_num = model_num
+        self.model_num = model_num  
         self.update_buffers = allow_update
         return self._run()
-
-    def policy_decide(self, policy_prob):
-        return np.random.rand() > policy_prob
-
-    def phase_condition(self, last_trust_update, cur_mean_reward, prev_mean_reward):
-        return last_trust_update < 0 or (cur_mean_reward >= prev_mean_reward)
-
-    def get_phase_step(self):
-        return 0.1
 
     def _run(self):
         """
@@ -606,133 +574,61 @@ class Runner(AbstractEnvRunner):
             - states: (np.ndarray) the internal states of the recurrent policies
             - infos: (dict) the extra information of the model
         """
-
+   
         # mb stands for minibatch
         mb_obs, mb_rewards, mb_actions, mb_values, mb_dones, mb_neglogpacs, mb_unshaped_reward = [], [], [], [], [], [], []
-
+        
         mb_states = self.states
         ep_infos = []
         model = self.model
-        RL_used = 0
-        AI_used = []
-        #If a model is not being trained but only used for prediction. In a non-self-play setting this section of code can be ignored.
+        #If a model is not being trained but only used for prediction. In a non-self-play setting this can be ignored. 
         if(self.update_buffers == 0):
             filenames = next(walk("."), (None, None, []))[2]
-            #list of all previous saved models
+            #list of all previous saved models 
             saved_models = [ f for f in filenames if "Model_"+str(self.model_num) in f]
             saved_models.sort()
-            model_decider = random.random()
+            model_decider = random.random() 
             f = open("model_used_"+str(self.model_num)+".txt", "a+")
             #Randomly pick from among older versions of the model. This is used to train a model against older versions of its opponent to prevent overfitting
-            old_policy_range = 10	#how many older policies should be included in the pool to randomly pick from
-            if(model_decider > 0.0 and saved_models != [] and len(saved_models[:-old_policy_range]) > 0):
-                    ind = 0
-                    if len(saved_models[:-old_policy_range]) > 1:
-                        ind = random.randint(0, len(saved_models[:-old_policy_range])-1)
-                    fi = saved_models[:-old_policy_range][ind]
+            if(model_decider > 0.0 and saved_models != []):
+                    ind = random.randint(0, len(saved_models[:])-1)
+                    fi = saved_models[:][ind]
                     print("Using file "+fi, ind, model_decider)
                     model = self_play_ppo2.load(fi)
                     model.set_env(self.env)
                     f.write("0\n")
             else:
-                print("Using latest model for tank " + str(self.model_num))
-                f.write("1\n")
+                    print("Using latest model")
+                    f.write("1\n")
             f.close()
 
-
-        #Run the environment for n time steps
         for _ in range(self.n_steps):
-            actions, values, self.states, neglogpacs = model.step(self.obs, self.states, self.dones)
             #If the model is not allowed to train it will only predict
-                #Choose between the RL policy action or the demonstrators action or even a random action
-            if(self.policy_decide(self.policy_prob)):#if(time_steps > self.thresh_steps):# and alive != 0):
-                rand_prob = 0.2
-                #Demonstrator action is sampled
-                if(self.model_num == 1):
-                    control_actions = self.env.env_method("control_blue", self.obs)[0][0]
-                else:
-                    control_actions = self.env.env_method("control_blue", self.obs)[0][1]
-                #Choose between random action and demonstrator action
-                if(random.random() < rand_prob):
-                    control_actions = np.array([random.random(), random.random(), random.random()])
-                    control_actions[1] = (control_actions[1] * (1 - (-1))) + (-1)
-                    control_action_prob = rand_prob
-                else:
-                    control_action_prob = 1.0 - rand_prob
-                control_actions[0] = (control_actions[0] * (1 - (-1))) + (-1)
-                control_actions[2] = (control_actions[2] * (1 - (-1))) + (-1)
-                AI_used.append(1)
+            if(self.update_buffers == 0):
+                actions, _, _ = model.predict(self.obs, deterministic = False)
             else:
-                if(self.update_buffers == 0):
-                    control_actions, _, _ = model.predict(self.obs, deterministic = False)
-                else:
-                    #RL action is sampled
-                    control_action_prob = 1.0
-                    control_actions = actions
-                    RL_used += 1
-                    AI_used.append(0)
-
-            control_actions = control_actions.reshape((1, 3))
+                actions, values, self.states, neglogpacs = model.step(self.obs, self.states, self.dones)
 
             if(self.update_buffers == 1):
-                if(self.dones):
-                    print("Current RL policy sampling probability: ", self.policy_prob, "Normalizing coefficient for importance sampling: ", self.norm_w)
-                    #Keep a track of the mean episode rewards
-                    if(self.ep_reward != []):
-                        mean_ep_reward = np.mean(np.array(self.ep_reward))
-                        self.cur_mean_reward += mean_ep_reward
-                        #If the policy performed better this episode compared to previous episode then reduce the effect of the demonstrations by reducing norm_w
-                        if(mean_ep_reward > self.prev_ep_reward):
-                            self.norm_w = max(self.norm_w/10.0, 1e-6)
-                        #If the policy performed worse this episode compared to previous episode then increase the effect of the demonstrations by increasing norm_w
-                        else:
-                            self.norm_w = min(self.norm_w*10, 1e-2)
-                        print("Prev ep= ", self.prev_ep_reward, "Cur_ep= ", mean_ep_reward)
-                        self.prev_ep_reward = mean_ep_reward
-                    print("Prev mean= ", self.prev_mean_reward, "Cur_mean= ", self.cur_mean_reward)
-                    self.ep_reward = []
-
-
-                episode = self.env.get_attr("episode")[0]
-                #After every 50 episodes, check if the policy is performing well enough to phase it more control. This metric can be modified
-                if(episode % 50 == 0 and episode != self.last_trust_update):
-                    self.cur_mean_reward = self.cur_mean_reward/50.0
-                    if(self.phase_condition(self.last_trust_update, self.cur_mean_reward, self.prev_mean_reward)):
-                        self.policy_prob = min(self.policy_prob+self.get_phase_step(), 1.0)
-                    #else:
-                        #self.policy_prob = max(self.policy_prob-get_phase_step(), 0.1)
-
-
-                    print("Prev mean= ", self.prev_mean_reward, "Cur mean= ", self.cur_mean_reward, "Mean Updates= ", self.mean_updates)
-                    self.prev_mean_reward = max(((self.mean_updates-1)/self.mean_updates)*self.prev_mean_reward + (1/self.mean_updates)*self.cur_mean_reward, 0.0)
-                    self.mean_updates += 1
-                    self.cur_mean_reward = 0.0
-                    self.last_trust_update = episode
-
-                #Get the action probability if the action is sampled randomly or by the demonstrator
-                if(control_action_prob != 1.0):
-                    mean_act, std_act = self.model.proba_step(self.obs, self.states, self.dones)
-                    action_probs = scipy.stats.norm(mean_act.flatten()[0], std_act.flatten()[0]).pdf(control_actions)
-                    if(abs(control_action_prob - rand_prob) < 0.0001):
-                        action_probs = np.array([0.5, 0.5, 0.5]) * control_action_prob	#In the case of random actions, all theactions have equal probability
-                    else:
-                        action_probs = np.array([1.0, 1.0, 1.0]) * control_action_prob	#Since the demonstrator is deterministic the probability of its action is always 1.0
-                    neglogpacs = [-np.sum(np.log(action_probs))]
-
                 mb_obs.append(self.obs.copy())
-                mb_actions.append(control_actions)
+                mb_actions.append(actions)
                 mb_values.append(values)
                 mb_neglogpacs.append(neglogpacs)
                 mb_dones.append(self.dones)
-
+                
             #Communicate the action to be taken to the main training program
-            self.conn[1].put(control_actions)
+            self.conn[1].put(actions)
             self.conn[1].join()
             #Recieve the new observation and reward after taking the action
             self.obs[:], rewards, self.dones, infos, clipped_actions = self.conn[0].get()
             self.conn[0].task_done()
-
-
+            
+            
+            if(self.update_buffers == 1):
+                unshaped_reward = rewards[0]
+                rewards = rewards[0] + rewards[1]
+            else:
+                rewards = rewards[0]	#In a non-self-play setting, the opponents reward does not matter
             actions = clipped_actions
 
             if(self.update_buffers == 1):
@@ -751,8 +647,8 @@ class Runner(AbstractEnvRunner):
                     if maybe_ep_info is not None:
                         ep_infos.append(maybe_ep_info)
                 mb_rewards.append(rewards)
-                mb_unshaped_reward.append(rewards)
-                self.ep_reward.append(rewards)
+                mb_unshaped_reward.append(unshaped_reward)
+
 
         if(self.update_buffers == 0):
             return [], [], [], [], [], [], [], [], []
@@ -768,8 +664,6 @@ class Runner(AbstractEnvRunner):
         mb_neglogpacs = np.asarray(mb_neglogpacs, dtype=np.float32)
         mb_dones = np.asarray(mb_dones, dtype=np.bool)
         last_values = self.model.value(self.obs, self.states, self.dones)
-        AI_used = np.asarray(AI_used, dtype=np.float32)
-
         # discount/bootstrap off value fn
         mb_advs = np.zeros_like(mb_rewards)
         true_reward = np.copy(mb_unshaped_reward)
@@ -788,12 +682,10 @@ class Runner(AbstractEnvRunner):
         true_reward = np.reshape(true_reward, (self.n_steps, 1))
         mb_dones = np.reshape(mb_dones, (self.n_steps, 1))
 
-        print("Proportions RL_used = "+str(RL_used)+" AI_used = "+str(self.n_steps-RL_used))
-
         mb_obs, mb_returns, mb_dones, mb_actions, mb_values, mb_neglogpacs, true_reward = \
             map(swap_and_flatten, (mb_obs, mb_returns, mb_dones, mb_actions, mb_values, mb_neglogpacs, true_reward))
 
-        return mb_obs, mb_returns, mb_dones, mb_actions, mb_values, mb_neglogpacs, mb_states, ep_infos, true_reward, AI_used, self.norm_w, self.policy_prob
+        return mb_obs, mb_returns, mb_dones, mb_actions, mb_values, mb_neglogpacs, mb_states, ep_infos, true_reward
 
 
 # obs, returns, masks, actions, values, neglogpacs, states = runner.run()
@@ -806,4 +698,4 @@ def swap_and_flatten(arr):
     """
     shape = arr.shape
     return arr.swapaxes(0, 1).reshape(shape[0] * shape[1], *shape[2:])
-
+    

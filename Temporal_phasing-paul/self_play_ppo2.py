@@ -625,16 +625,15 @@ class Runner(AbstractEnvRunner):
             f = open("model_used_"+str(self.model_num)+".txt", "a+")
             #Randomly pick from among older versions of the model. This is used to train a model against older versions of its opponent to prevent overfitting
             old_policy_range = 10	#how many older policies should be included in the pool to randomly pick from
-            if(model_decider > 0.0 and saved_models != []):
-                if len(saved_models[:-old_policy_range]) == 1:
+            if(model_decider > 0.0 and saved_models != [] and len(saved_models[:-old_policy_range]) > 0):
                     ind = 0
-                else:
-                    ind = random.randint(0, len(saved_models[:-old_policy_range])-1)
-                fi = saved_models[:-old_policy_range][ind]
-                print("Using file "+fi, ind, model_decider)
-                model = self_play_ppo2.load(fi)
-                model.set_env(self.env)
-                f.write("0\n")
+                    if len(saved_models[:-old_policy_range]) > 1:
+                        ind = random.randint(0, len(saved_models[:-old_policy_range])-1)
+                    fi = saved_models[:-old_policy_range][ind]
+                    print("Using file "+fi, ind, model_decider)
+                    model = self_play_ppo2.load(fi)
+                    model.set_env(self.env)
+                    f.write("0\n")
             else:
                 print("Using latest model for tank " + str(self.model_num))
                 f.write("1\n")

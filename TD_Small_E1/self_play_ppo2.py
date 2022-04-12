@@ -694,9 +694,9 @@ class Runner(AbstractEnvRunner):
 
 
                 episode = self.env.get_attr("episode")[0]
-                #After every 50 episodes, check if the policy is performing well enough to phase it more control. This metric can be modified
-                if(episode % 50 == 0 and episode != self.last_trust_update):
-                    self.cur_mean_reward = self.cur_mean_reward/50.0
+                #After every 100 episodes, check if the policy is performing well enough to phase it more control. This metric can be modified
+                if(episode % 100 == 0 and episode != self.last_trust_update):
+                    self.cur_mean_reward = self.cur_mean_reward/100.0
                     if(self.phase_condition(self.last_trust_update, self.cur_mean_reward, self.prev_mean_reward)):
                         self.policy_prob = min(self.policy_prob+self.get_phase_step(), 1.0)
                     #else:

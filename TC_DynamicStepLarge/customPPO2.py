@@ -69,7 +69,6 @@ class CustomPPO2(PPO2):
             self.value = None
             self.n_batch = None
             self.summary = None
-            self.policy_prob = 0.0
 
             super().__init__(policy, env, gamma, n_steps, ent_coef, learning_rate, vf_coef,
                  max_grad_norm, lam, nminibatches, noptepochs, cliprange, cliprange_vf,
@@ -329,7 +328,7 @@ class CustomPPO2(PPO2):
                             # true_reward is the reward without discount
                             rollout = self.runner.run(callback)
                             # Unpack
-                            obs, returns, masks, actions, values, neglogpacs, states, ep_infos, true_reward, shaped_rew, unshaped_rew, policy_prob = rollout
+                            obs, returns, masks, actions, values, neglogpacs, states, ep_infos, unshaped_rew, policy_prob, AI_used, RL_used= rollout
                             self.values = values
                             callback.on_rollout_end()
 
@@ -379,19 +378,18 @@ class CustomPPO2(PPO2):
                             fps = int(self.n_batch / (t_now - t_start))
                             if writer is not None:
                                 total_episode_reward_logger(self.episode_reward,
-                                                            true_reward.reshape((self.n_envs, self.n_steps)),
+                                                            unshaped_rew.reshape((self.n_envs, self.n_steps)),
                                                             masks.reshape((self.n_envs, self.n_steps)),
                                                             writer, self.num_timesteps)
 
                             if self.verbose >= 1 and (update % log_interval == 0 or update == 1):
 
-                                print("mean of true reward (all reward received by model): " + str(np.mean(true_reward)))
-                                print("mean of shaped reward: " + str(np.mean(shaped_rew)))
                                 print("mean of unshaped reward (global rewards): " + str(np.mean(unshaped_rew)))
+                                print("AI used: " + str(AI_used) + " RL Used: " + str(RL_used) + " rl%: " + str(RL_used / (RL_used + AI_used)) + " policy_prob: " + str(policy_prob))
                                 f = open("rewards.txt", "a+")
                                 #write the average true, shaped, and unshaped step reward for each episode
                                 #each episode is on a new line and rewards are separated by a space
-                                f.write(str(np.mean(true_reward)) + " " + str(np.mean(shaped_rew)) + " " + str(np.mean(unshaped_rew)) + " " + str(policy_prob) + "\n")
+                                f.write(str(0.0) + " " + str(0.0) + " " + str(np.mean(unshaped_rew)) + " " + str(policy_prob) + "\n")
                                 f.close()
                                 print("Cycle", cyc, update)
                                 explained_var = explained_variance(values, returns)
@@ -453,7 +451,6 @@ class Runner(AbstractEnvRunner):
         self.ep_reward = []
         self.exp_ep_reward = []
         self.og_model = self.model
-        self.policy_prob = 0.0
 
     def policy_decide(self, policy_prob):
         return np.random.rand() > policy_prob
@@ -495,15 +492,16 @@ class Runner(AbstractEnvRunner):
             self.model.reward_model = reward_mod
             print("Reverting Model")'''
         # mb stands for minibatch
-        mb_obs, mb_rewards, mb_shaped_rew, mb_unshaped_rew, mb_actions, mb_values, mb_dones, mb_neglogpacs = [], [], [], [], [], [], [], []
+        mb_obs, mb_rewards, mb_unshaped_rew, mb_actions, mb_values, mb_dones, mb_neglogpacs = [], [], [], [], [], [], []
         mb_states = self.states
         ep_infos = []
         traj_val = 0.0
         expert_traj_val = 0.0
-        rew_fraction = 1.0
         loss = 0.0
-        AI_used = []
+        AI_usedtemp = []
+        AI_used = 0
         RL_used = 0
+        policy_prob = None
         self.ep_reward = []
         self.exp_ep_reward = []
         for step in range(self.n_steps):
@@ -517,7 +515,7 @@ class Runner(AbstractEnvRunner):
 
             clipped_actions = None
             if(self.policy_decide(self.policy_prob)):
-                rand_prob = 0.2
+                rand_prob = 0.02
                 if random.random() < rand_prob:
                     clipped_actions = [np.array([random.random(), random.random(), random.random(), random.random(), random.random(), random.random()])]
                     clipped_actions[0][1] = (clipped_actions[0][1] * (1 -(-1)) + (-1))
@@ -525,10 +523,9 @@ class Runner(AbstractEnvRunner):
                 else:
                     clipped_actions = self.env.env_method("control", self.obs)
 
-                AI_used.append(1)
+                AI_used+= 1
             else:
                 clipped_actions = actions
-                AI_used.append(0)
                 RL_used+=1
 
             clipped_actions[0][0] = (clipped_actions[0][0] * (1 -(-1)) + (-1))
@@ -546,8 +543,8 @@ class Runner(AbstractEnvRunner):
 
             episode = self.env.get_attr("episode")[0]
 
-            if (episode % 50 == 0 and episode != self.last_trust_update):
-                self.cur_mean_reward = self.cur_mean_reward / 50.0
+            if (episode % 100 == 0 and episode != self.last_trust_update):
+                self.cur_mean_reward = self.cur_mean_reward / 100.0
                 if self.phase_condition(self.last_trust_update, self.cur_mean_reward, self.prev_mean_reward):
                     self.policy_prob = min(self.policy_prob + self.get_phase_step(), 1.0)
                 self.prev_mean_reward = max(((self.mean_updates -1) / self.mean_updates) * self.prev_mean_reward + (1.0 / self.mean_updates) * self.cur_mean_reward, 0.0)
@@ -574,18 +571,12 @@ class Runner(AbstractEnvRunner):
             for info in infos:
                 maybe_ep_info = info.get('episode')
                 #shaped_rew + local
-                maybe_shaped_info = info.get('shaped')
                 #just global
                 maybe_unshaped_info = info.get('unshaped')
-                maybe_frac_info = info.get('frac')
                 if maybe_ep_info is not None:
                     ep_infos.append(maybe_ep_info)
-                if maybe_shaped_info is not None:
-                    mb_shaped_rew.append(maybe_shaped_info)
                 if maybe_unshaped_info is not None:
                     mb_unshaped_rew.append(maybe_unshaped_info)
-                if maybe_frac_info is not None:
-                    rew_fraction = maybe_frac_info
             mb_rewards.append(rewards)
             #mb_shaped_rew.append(infos["shaped"])
             #mb_unshaped_rew.append(infos["unshaped"])
@@ -593,7 +584,6 @@ class Runner(AbstractEnvRunner):
         # batch of steps to batch of rollouts
         mb_obs = np.asarray(mb_obs, dtype=self.obs.dtype)
         mb_rewards = np.asarray(mb_rewards, dtype=np.float32)
-        mb_shaped_rew = np.asarray(mb_shaped_rew, dtype=np.float32)
         mb_unshaped_rew = np.asarray(mb_unshaped_rew, dtype=np.float32)
         mb_actions = np.asarray(mb_actions)
         mb_values = np.asarray(mb_values, dtype=np.float32)
@@ -603,8 +593,6 @@ class Runner(AbstractEnvRunner):
 
         # discount/bootstrap off value fn
         mb_advs = np.zeros_like(mb_rewards)
-        true_reward = np.copy(mb_rewards)
-        shaped_rew = np.copy(mb_shaped_rew)
         unshaped_rew = np.copy(mb_unshaped_rew)
         last_gae_lam = 0
         for step in reversed(range(self.n_steps)):
@@ -619,10 +607,10 @@ class Runner(AbstractEnvRunner):
         mb_returns = mb_advs + mb_values
 
 
-        mb_obs, mb_returns, mb_dones, mb_actions, mb_values, mb_neglogpacs, true_reward= \
-            map(swap_and_flatten, (mb_obs, mb_returns, mb_dones, mb_actions, mb_values, mb_neglogpacs, true_reward))
+        mb_obs, mb_returns, mb_dones, mb_actions, mb_values, mb_neglogpacs= \
+            map(swap_and_flatten, (mb_obs, mb_returns, mb_dones, mb_actions, mb_values, mb_neglogpacs))
 
-        return mb_obs, mb_returns, mb_dones, mb_actions, mb_values, mb_neglogpacs, mb_states, ep_infos, true_reward, shaped_rew, unshaped_rew, self.policy_prob
+        return mb_obs, mb_returns, mb_dones, mb_actions, mb_values, mb_neglogpacs, mb_states, ep_infos, unshaped_rew, self.policy_prob, AI_used, RL_used
 
 
 # obs, returns, masks, actions, values, neglogpacs, states = runner.run()

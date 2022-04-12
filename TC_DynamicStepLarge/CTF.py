@@ -238,6 +238,7 @@ class CTF(gym.Env):
         if(self.time_steps == 20000):
             done = True
             self.episode = self.episode + 1
+            self.change_rew_frac(self.episode)
 
         t = 0
         for i,a in enumerate(actions):
@@ -313,22 +314,8 @@ class CTF(gym.Env):
             pg.display.flip()
         self.obs = self.observation()
 
-        #calculate the shaped rewards based on change in distance to flag/base
-        shaped_rew = 0.0
-        #shaping_rew = np.array([max(100*(1-self.stole_flag)*(self.prev_dist_to_flag - self.dist_to_flag) + 100*self.stole_flag*(self.prev_dist_to_base - self.dist_to_base), -10.0)])
-        for t in range(len(self.BlueTanks)):
-            stole_flag = isinstance(self.BlueTanks[t].flag, Flag)
-            if self.BlueTanks[t].position[0] != gameConsts.players[0]["tanks"][t]['position']['x'] and self.BlueTanks[t].position[1] != gameConsts.players[0]["tanks"][t]['position']['y']:
-                shaped_rew += max(100*(1-stole_flag)*(self.prev_dist_to_flag[t] - self.dist_to_flag[t]) + 100*stole_flag*(self.prev_dist_to_base[t] - self.dist_to_base[t]), -10.0)
-            else:
-                shaped_rew += 0.0
 
-        #combine all rewards and send to model
-        local_reward = sum(local_rewards)
-        shaped_rew += local_reward
-
-        #all_rew = global_rewards + self.rew_frac*(shaped_rew)
-        return [self.obs, global_rewards, done, {"shaped":shaped_rew, "unshaped":global_rewards, "frac": self.rew_frac}]
+        return [self.obs, global_rewards, done, {"unshaped":global_rewards}]
 
 
     def change_rew_frac(self, episode):
@@ -543,10 +530,13 @@ class CTF(gym.Env):
                 res[(t.tank_num - 1) * 3 + 1] = ang_speed
                 res[(t.tank_num - 1) * 3 + 2] = fire
                 continue
-            '''if (isinstance(t.flag, Flag)):
+            if (isinstance(t.flag, Flag)):
                 des_x, des_y = self.allBases[0].position
                 speed, ang_speed = self.control_update(t.position[0], t.position[1], des_x, des_y, t.direction, t.radius)
-                return np.array([speed, ang_speed, fire])'''
+                res[(t.tank_num - 1) * 3 + 0] = speed
+                res[(t.tank_num - 1) * 3 + 1] = ang_speed
+                res[(t.tank_num - 1) * 3 + 2] = fire
+                continue
 
             # find closest tank
             tankTarget = {'dist': math.inf, 'enemyTank': None}
@@ -558,9 +548,9 @@ class CTF(gym.Env):
 
             #random.shuffle(self.allFlags)
             attackMode = True
-            '''if(self.allFlags[1].pickedUpBy is None):
+            if(self.allFlags[1].pickedUpBy is None):
                 des_x, des_y = self.allFlags[1].position
-                attackMode = False'''
+                attackMode = False
 
 
             if((tankTarget['enemyTank'] is not None and (tankTarget['dist'] < gameConsts.SIGHT_ENEMY_RANGE or attackMode))):

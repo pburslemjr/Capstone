@@ -58,14 +58,14 @@ def create_callback(model, verbose=1):
         global episode_shaped_rewards
         global steps
         #print(_locals)
-        
+
         steps = steps + 1
 
         episode_rewards[-1] = episode_rewards[-1] + _locals['rewards']
         if(steps%20000 == 0):
             print("Episodes Reward = ", episode_rewards[-1], len(episode_rewards))
             episode_rewards.append(0.0)
- 
+
         file_num = re.findall("\d*", args.load_model[-2:])
         file_num = [x for x in file_num if x != '']
         if(file_num != []):
@@ -112,4 +112,4 @@ kwargs.update({'callback': create_callback(model, verbose=1)})
 
 print(model)
 model.learn(total_cycles = 1000, iteration = 0, rl_optimization = 20480*100, **kwargs)
-model.save("CTF_4")
+model.save("CTF_Final")

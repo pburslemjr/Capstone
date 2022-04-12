@@ -626,17 +626,17 @@ class Runner(AbstractEnvRunner):
             #Randomly pick from among older versions of the model. This is used to train a model against older versions of its opponent to prevent overfitting
             old_policy_range = 10	#how many older policies should be included in the pool to randomly pick from
             if(model_decider > 0.0 and saved_models != [] and len(saved_models[:-old_policy_range]) > 0):
-                    ind = 0
-                    if len(saved_models[:-old_policy_range]) > 1:
-                        ind = random.randint(0, len(saved_models[:-old_policy_range])-1)
-                    fi = saved_models[:-old_policy_range][ind]
-                    print("Using file "+fi, ind, model_decider)
-                    model = self_play_ppo2.load(fi)
-                    model.set_env(self.env)
-                    f.write("0\n")
+                ind = 0
+                if len(saved_models[:-old_policy_range]) > 1:
+                    ind = random.randint(0, len(saved_models[:-old_policy_range])-1)
+                fi = saved_models[:-old_policy_range][ind]
+                print("Using file "+fi, ind, model_decider)
+                model = self_play_ppo2.load(fi)
+                model.set_env(self.env)
+                f.write("0\n")
             else:
-                    print("Using latest model for tank " + str(self.model_num))
-                    f.write("1\n")
+                print("Using latest model for tank " + str(self.model_num))
+                f.write("1\n")
             f.close()
 
 
@@ -698,7 +698,7 @@ class Runner(AbstractEnvRunner):
                 if(episode % 50 == 0 and episode != self.last_trust_update):
                     self.cur_mean_reward = self.cur_mean_reward/50.0
                     if(self.phase_condition(self.last_trust_update, self.cur_mean_reward, self.prev_mean_reward)):
-                        self.policy_prob += min(self.policy_prob+self.get_phase_step(), 1.0)
+                        self.policy_prob = min(self.policy_prob+self.get_phase_step(), 1.0)
                     #else:
                         #self.policy_prob = max(self.policy_prob-get_phase_step(), 0.1)
 

@@ -646,7 +646,7 @@ class Runner(AbstractEnvRunner):
             #If the model is not allowed to train it will only predict
                 #Choose between the RL policy action or the demonstrators action or even a random action
             if(self.policy_decide(self.policy_prob)):#if(time_steps > self.thresh_steps):# and alive != 0):
-                rand_prob = 0.2
+                rand_prob = 0.01
                 #Demonstrator action is sampled
                 if(self.model_num == 1):
                     control_actions = self.env.env_method("control_blue", self.obs)[0][0]

@@ -456,6 +456,7 @@ class Runner(AbstractEnvRunner):
         return np.random.rand() > policy_prob
 
     def phase_condition(self, last_trust_update, cur_mean_reward, prev_mean_reward):
+        print("last: " + str(prev_mean_reward) + " curr: " +str(cur_mean_reward))
         return last_trust_update < 0 or (cur_mean_reward >= prev_mean_reward)
 
     def get_phase_step(self):
@@ -534,8 +535,6 @@ class Runner(AbstractEnvRunner):
             clipped_actions[0][5] = (clipped_actions[0][5] * (1 -(-1)) + (-1))
 
 
-
-
             #Execute action in the environment to find the reward
             # Clip the actions to avoid out of bound error
             if isinstance(self.env.action_space, gym.spaces.Box):
@@ -543,14 +542,6 @@ class Runner(AbstractEnvRunner):
 
             episode = self.env.get_attr("episode")[0]
 
-            if (episode % 100 == 0 and episode != self.last_trust_update):
-                self.cur_mean_reward = self.cur_mean_reward / 100.0
-                if self.phase_condition(self.last_trust_update, self.cur_mean_reward, self.prev_mean_reward):
-                    self.policy_prob = min(self.policy_prob + self.get_phase_step(), 1.0)
-                self.prev_mean_reward = max(((self.mean_updates -1) / self.mean_updates) * self.prev_mean_reward + (1.0 / self.mean_updates) * self.cur_mean_reward, 0.0)
-                self.mean_updates += 1
-                self.cur_mean_reward = 0.0
-                self.last_trust_update = episode
 
             self.obs[:], rewards, self.dones, infos = self.env.step(clipped_actions)
 
@@ -568,6 +559,7 @@ class Runner(AbstractEnvRunner):
             #    maybe_ep_info = info.get('episode')
             #    if maybe_ep_info is not None:
             #        ep_infos.append(maybe_ep_info)
+            self.ep_reward.append(rewards)
             for info in infos:
                 maybe_ep_info = info.get('episode')
                 #shaped_rew + local
@@ -578,6 +570,27 @@ class Runner(AbstractEnvRunner):
                 if maybe_unshaped_info is not None:
                     mb_unshaped_rew.append(maybe_unshaped_info)
             mb_rewards.append(rewards)
+
+            if (self.dones):
+                if (self.ep_reward != []):
+                    mean_ep_rew = np.mean(np.array(self.ep_reward))
+                    self.cur_mean_reward += mean_ep_rew
+                self.ep_reward = []
+                print("EPISODE DONE")
+
+
+            if (episode % 1 == 0 and episode != self.last_trust_update):
+                self.cur_mean_reward = self.cur_mean_reward / 1.0
+                if self.phase_condition(self.last_trust_update, self.cur_mean_reward, self.prev_mean_reward):
+                    print("PHASING")
+                    self.policy_prob = min(self.policy_prob + self.get_phase_step(), 1.0)
+                    self.prev_mean_reward = max(((self.mean_updates -1) / self.mean_updates) * self.prev_mean_reward + (1.0 / self.mean_updates) * self.cur_mean_reward, 0.0)
+
+                print("Prev mean= ", self.prev_mean_reward, "Cur mean= ", self.cur_mean_reward, "Mean Updates= ", self.mean_updates)
+                print("Policy Prob: " + str(self.policy_prob))
+                self.mean_updates += 1
+                self.cur_mean_reward = 0.0
+                self.last_trust_update = episode
             #mb_shaped_rew.append(infos["shaped"])
             #mb_unshaped_rew.append(infos["unshaped"])
 

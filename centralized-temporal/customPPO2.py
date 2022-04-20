@@ -445,7 +445,7 @@ class Runner(AbstractEnvRunner):
         self.lam = lam
         self.gamma = gamma
         self.likelihood_ratio = 1.0
-        self.policy_prob = 0.0
+        self.policy_prob = 0.15
         self.norm_w = 1e-3
         self.thresh_steps = 0
         self.last_trust_update = -1
@@ -465,7 +465,7 @@ class Runner(AbstractEnvRunner):
         return last_trust_update < 0 or (cur_mean_reward >= prev_mean_reward)
 
     def get_phase_step(self):
-        return 0.1
+        return 0.05
 
     def run(self, callback: Optional[BaseCallback] = None) -> Any:
         """
@@ -586,17 +586,17 @@ class Runner(AbstractEnvRunner):
                     mean_ep_rew = np.mean(np.array(self.ep_reward))
                     self.cur_mean_reward += mean_ep_rew
                     if(mean_ep_rew > self.prev_ep_reward):
-                        self.norm_w = max(self.norm_w/10.0, 1e-6)
+                        self.norm_w = max(self.norm_w/10.0, 1e-5)
                     else:
-                        self.norm_w = min(self.norm_w/10.0, 1e-2)
+                        self.norm_w = min(self.norm_w*10.0, 1.0)
                     print("Prev ep= ", self.prev_ep_reward, "Cur_ep= ", mean_ep_rew)
                     self.prev_mean_reward = mean_ep_rew
                 self.ep_reward = []
                 print("EPISODE DONE")
 
 
-            if (episode % 1 == 0 and episode != self.last_trust_update):
-                self.cur_mean_reward = self.cur_mean_reward / 1.0
+            if (episode % 100 == 0 and episode != self.last_trust_update):
+                self.cur_mean_reward = self.cur_mean_reward / 100.0
                 if self.phase_condition(self.last_trust_update, self.cur_mean_reward, self.prev_mean_reward):
                     print("PHASING")
                     self.policy_prob = min(self.policy_prob + self.get_phase_step(), 1.0)

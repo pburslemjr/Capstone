@@ -114,6 +114,8 @@ class CustomPPO2(PPO2):
                         self.old_vpred_ph = tf.placeholder(tf.float32, [None], name="old_vpred_ph")
                         self.learning_rate_ph = tf.placeholder(tf.float32, [], name="learning_rate_ph")
                         self.clip_range_ph = tf.placeholder(tf.float32, [], name="clip_range_ph")
+                        self.AI_used = tf.placeholder(tf.float32, [None], name="AI_used")
+                        self.RL_used = tf.placeholder(tf.float32, [None], name="RL_used")
 
                         neglogpac = train_model.proba_distribution.neglogp(self.action_ph)
                         self.entropy = tf.reduce_mean(train_model.proba_distribution.entropy())
@@ -152,8 +154,11 @@ class CustomPPO2(PPO2):
                         pg_losses = -self.advs_ph * ratio
                         pg_losses2 = -self.advs_ph * tf.clip_by_value(ratio, 1.0 - self.clip_range_ph, 1.0 +
                                                                       self.clip_range_ph)
+                        self.Z = tf.reduce_sum(tf.maximum(self.AI_used*ratio, tf.clip_by_value(self.AI_used*ratio, 1.0 - self.clip_range_ph, 1.0 + self.clip_range_ph)))
+                        self.pg_sample_loss = (tf.reduce_sum(tf.maximum(self.AI_used*pg_losses, self.AI_used*pg_losses2)) / self.Z) + (self.runner.norm_w)*tf.log(self.Z)
+                        self.pg_rl_loss = tf.reduce_mean(tf.maximum(self.RL_used*pg_losses, self.RL_used*pg_losses2))
 
-                        self.pg_loss = tf.reduce_mean(tf.maximum(pg_losses, pg_losses2))
+                        self.pg_loss = self.pg_sample_loss + self.pg_rl_loss
                         self.approxkl = .5 * tf.reduce_mean(tf.square(neglogpac - self.old_neglog_pac_ph))
                         self.clipfrac = tf.reduce_mean(tf.cast(tf.greater(tf.abs(ratio - 1.0),
                                                                           self.clip_range_ph), tf.float32))
@@ -222,7 +227,7 @@ class CustomPPO2(PPO2):
                     self.summary = tf.summary.merge_all()
 
 
-        def _train_step(self, learning_rate, cliprange, obs, returns, masks, actions, values, neglogpacs, update,
+        def _train_step(self, learning_rate, cliprange, obs, returns, masks, actions, values, neglogpacs, AI_used, update,
                         writer, states=None, cliprange_vf=None):
             """
             Training of PPO2 Algorithm
@@ -244,10 +249,11 @@ class CustomPPO2(PPO2):
             """
             advs = returns - values
             advs = (advs - advs.mean()) / (advs.std() + 1e-8)
+            RL_used = np.ones(AI_used.shape) - AI_used
             td_map = {self.train_model.obs_ph: obs, self.action_ph: actions,
                       self.advs_ph: advs, self.rewards_ph: returns,
                       self.learning_rate_ph: learning_rate, self.clip_range_ph: cliprange,
-                      self.old_neglog_pac_ph: neglogpacs, self.old_vpred_ph: values}
+                      self.old_neglog_pac_ph: neglogpacs, self.old_vpred_ph: values, self.AI_used: AI_used, self.RL_used: RL_used}
             if states is not None:
                 td_map[self.train_model.states_ph] = states
                 td_map[self.train_model.dones_ph] = masks
@@ -328,7 +334,7 @@ class CustomPPO2(PPO2):
                             # true_reward is the reward without discount
                             rollout = self.runner.run(callback)
                             # Unpack
-                            obs, returns, masks, actions, values, neglogpacs, states, ep_infos, unshaped_rew, policy_prob, AI_used, RL_used= rollout
+                            obs, returns, masks, actions, values, neglogpacs, states, ep_infos, unshaped_rew, policy_prob, AI_used = rollout
                             self.values = values
                             callback.on_rollout_end()
 
@@ -350,7 +356,7 @@ class CustomPPO2(PPO2):
                                                                                         self.n_batch + start) // batch_size)
                                         end = start + batch_size
                                         mbinds = inds[start:end]
-                                        slices = (arr[mbinds] for arr in (obs, returns, masks, actions, values, neglogpacs))
+                                        slices = (arr[mbinds] for arr in (obs, returns, masks, actions, values, neglogpacs, AI_used))
                                         mb_loss_vals.append(self._train_step(lr_now, cliprange_now, *slices, writer=writer,
                                                                              update=timestep, cliprange_vf=cliprange_vf_now))
                             else:  # recurrent version
@@ -385,7 +391,6 @@ class CustomPPO2(PPO2):
                             if self.verbose >= 1 and (update % log_interval == 0 or update == 1):
 
                                 print("mean of unshaped reward (global rewards): " + str(np.mean(unshaped_rew)))
-                                print("AI used: " + str(AI_used) + " RL Used: " + str(RL_used) + " rl%: " + str(RL_used / (RL_used + AI_used)) + " policy_prob: " + str(policy_prob))
                                 f = open("rewards.txt", "a+")
                                 #write the average true, shaped, and unshaped step reward for each episode
                                 #each episode is on a new line and rewards are separated by a space
@@ -441,7 +446,7 @@ class Runner(AbstractEnvRunner):
         self.gamma = gamma
         self.likelihood_ratio = 1.0
         self.policy_prob = 0.0
-        self.norm_w = 1.0
+        self.norm_w = 1e-3
         self.thresh_steps = 0
         self.last_trust_update = -1
         self.prev_mean_reward = 0.0#-0.035 #-0.067
@@ -493,14 +498,13 @@ class Runner(AbstractEnvRunner):
             self.model.reward_model = reward_mod
             print("Reverting Model")'''
         # mb stands for minibatch
-        mb_obs, mb_rewards, mb_unshaped_rew, mb_actions, mb_values, mb_dones, mb_neglogpacs = [], [], [], [], [], [], []
+        mb_obs, mb_rewards, mb_unshaped_rew, mb_actions, mb_values, mb_dones, mb_neglogpacs, likelihood_ratio = [], [], [], [], [], [], [], []
         mb_states = self.states
         ep_infos = []
         traj_val = 0.0
         expert_traj_val = 0.0
         loss = 0.0
-        AI_usedtemp = []
-        AI_used = 0
+        AI_used = []
         RL_used = 0
         policy_prob = None
         self.ep_reward = []
@@ -513,6 +517,7 @@ class Runner(AbstractEnvRunner):
             mb_actions.append(actions)
             mb_values.append(values)
             mb_neglogpacs.append(neglogpacs)
+            alive = self.env.get_attr("alive")[0]
 
             clipped_actions = None
             if(self.policy_decide(self.policy_prob)):
@@ -524,10 +529,11 @@ class Runner(AbstractEnvRunner):
                 else:
                     clipped_actions = self.env.env_method("control", self.obs)
 
-                AI_used+= 1
+                AI_used.append(1)
             else:
                 clipped_actions = actions
                 RL_used+=1
+                AI_used.append(0)
 
             clipped_actions[0][0] = (clipped_actions[0][0] * (1 -(-1)) + (-1))
             clipped_actions[0][2] = (clipped_actions[0][2] * (1 -(-1)) + (-1))
@@ -535,6 +541,8 @@ class Runner(AbstractEnvRunner):
             clipped_actions[0][5] = (clipped_actions[0][5] * (1 -(-1)) + (-1))
 
 
+            if(alive == 0):
+                self.likelihood_ratio = 1.0
             #Execute action in the environment to find the reward
             # Clip the actions to avoid out of bound error
             if isinstance(self.env.action_space, gym.spaces.Box):
@@ -572,9 +580,16 @@ class Runner(AbstractEnvRunner):
             mb_rewards.append(rewards)
 
             if (self.dones):
+                self.likelihood_ratio = 1.0
+                print("norm_W: " + str(self.norm_w))
                 if (self.ep_reward != []):
                     mean_ep_rew = np.mean(np.array(self.ep_reward))
                     self.cur_mean_reward += mean_ep_rew
+                    if(mean_ep_rew > self.prev_ep_reward):
+                        self.norm_w = max(self.norm_w/10.0, 1e-6)
+                    else:
+                        self.norm_w = min(self.norm_w/10.0, 1e-2)
+                    print("Prev ep= ", self.prev_ep_reward, "Cur_ep= ", mean_ep_rew)
                 self.ep_reward = []
                 print("EPISODE DONE")
 
@@ -603,6 +618,7 @@ class Runner(AbstractEnvRunner):
         mb_neglogpacs = np.asarray(mb_neglogpacs, dtype=np.float32)
         mb_dones = np.asarray(mb_dones, dtype=np.bool)
         last_values = self.model.value(self.obs, self.states, self.dones)
+        AI_used = np.asfarray(AI_used, dtype=np.float32)
 
         # discount/bootstrap off value fn
         mb_advs = np.zeros_like(mb_rewards)
@@ -619,11 +635,12 @@ class Runner(AbstractEnvRunner):
             mb_advs[step] = last_gae_lam = delta + self.gamma * self.lam * nextnonterminal * last_gae_lam
         mb_returns = mb_advs + mb_values
 
+        print("Proportions RL_used = "+str(RL_used)+" AI_used = "+str(self.n_steps-RL_used))
 
         mb_obs, mb_returns, mb_dones, mb_actions, mb_values, mb_neglogpacs= \
             map(swap_and_flatten, (mb_obs, mb_returns, mb_dones, mb_actions, mb_values, mb_neglogpacs))
 
-        return mb_obs, mb_returns, mb_dones, mb_actions, mb_values, mb_neglogpacs, mb_states, ep_infos, unshaped_rew, self.policy_prob, AI_used, RL_used
+        return mb_obs, mb_returns, mb_dones, mb_actions, mb_values, mb_neglogpacs, mb_states, ep_infos, unshaped_rew, self.policy_prob, AI_used
 
 
 # obs, returns, masks, actions, values, neglogpacs, states = runner.run()

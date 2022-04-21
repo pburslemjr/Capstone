@@ -683,10 +683,10 @@ class Runner(AbstractEnvRunner):
                         self.cur_mean_reward += mean_ep_reward
                         #If the policy performed better this episode compared to previous episode then reduce the effect of the demonstrations by reducing norm_w
                         if(mean_ep_reward > self.prev_ep_reward):
-                            self.norm_w = max(self.norm_w/10.0, 1e-6)
+                            self.norm_w = max(self.norm_w/10.0, 1e-5)
                         #If the policy performed worse this episode compared to previous episode then increase the effect of the demonstrations by increasing norm_w
                         else:
-                            self.norm_w = min(self.norm_w*10, 1e-2)
+                            self.norm_w = min(self.norm_w*10, 1.0)
                         print("Prev ep= ", self.prev_ep_reward, "Cur_ep= ", mean_ep_reward)
                         self.prev_ep_reward = mean_ep_reward
                     print("Prev mean= ", self.prev_mean_reward, "Cur_mean= ", self.cur_mean_reward)

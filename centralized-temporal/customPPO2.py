@@ -445,7 +445,7 @@ class Runner(AbstractEnvRunner):
         self.lam = lam
         self.gamma = gamma
         self.likelihood_ratio = 1.0
-        self.policy_prob = 0.15
+        self.policy_prob = 0.5
         self.norm_w = 1e-3
         self.thresh_steps = 0
         self.last_trust_update = -1
@@ -600,9 +600,10 @@ class Runner(AbstractEnvRunner):
                 if self.phase_condition(self.last_trust_update, self.cur_mean_reward, self.prev_mean_reward):
                     print("PHASING")
                     self.policy_prob = min(self.policy_prob + self.get_phase_step(), 1.0)
-                    self.prev_mean_reward = max(((self.mean_updates -1) / self.mean_updates) * self.prev_mean_reward + (1.0 / self.mean_updates) * self.cur_mean_reward, 0.0)
+                self.prev_mean_reward = max(((self.mean_updates -1) / self.mean_updates) * self.prev_mean_reward + (1.0 / self.mean_updates) * self.cur_mean_reward, 0.0)
 
                 print("Prev mean= ", self.prev_mean_reward, "Cur mean= ", self.cur_mean_reward, "Mean Updates= ", self.mean_updates)
+
                 print("Policy Prob: " + str(self.policy_prob))
                 self.mean_updates += 1
                 self.cur_mean_reward = 0.0

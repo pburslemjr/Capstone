@@ -561,7 +561,7 @@ class Runner(AbstractEnvRunner):
         self.gamma = gamma
         self.conn = conn
 
-        self.policy_prob = 0.0
+        self.policy_prob = 0.2
         self.norm_w = 1e-3
         self.last_trust_update = -1
         self.prev_mean_reward = 0.0
@@ -590,7 +590,7 @@ class Runner(AbstractEnvRunner):
         return last_trust_update < 0 or (cur_mean_reward >= prev_mean_reward)
 
     def get_phase_step(self):
-        return 0.1
+        return 0.05
 
     def _run(self):
         """

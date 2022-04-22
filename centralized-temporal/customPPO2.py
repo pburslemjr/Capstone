@@ -445,7 +445,7 @@ class Runner(AbstractEnvRunner):
         self.lam = lam
         self.gamma = gamma
         self.likelihood_ratio = 1.0
-        self.policy_prob = 0.5
+        self.policy_prob = 0.3
         self.norm_w = 1e-3
         self.thresh_steps = 0
         self.last_trust_update = -1
@@ -593,6 +593,7 @@ class Runner(AbstractEnvRunner):
                     self.prev_mean_reward = mean_ep_rew
                 self.ep_reward = []
                 print("EPISODE DONE")
+                self.env.reset()
 
 
             if (episode % 100 == 0 and episode != self.last_trust_update):

@@ -235,7 +235,7 @@ class CTF(gym.Env):
 
         done = False
         #Set length of episode
-        if(self.time_steps == 20000):
+        if(self.time_steps == 20480):
             done = True
             self.episode = self.episode + 1
             self.change_rew_frac(self.episode)
@@ -313,6 +313,9 @@ class CTF(gym.Env):
 
             pg.display.flip()
         self.obs = self.observation()
+        if global_rewards < 0.0:
+            done = True
+            self.episode = self.episode + 1
 
 
         return [self.obs, global_rewards, done, {"unshaped":global_rewards}]
@@ -480,10 +483,10 @@ class CTF(gym.Env):
             #Reward for stealing flag or flag getting stolen
             if(isinstance(o1.flag, Flag) == False):
                 if(self.selectableTanks[0].color == o2.color):
-                    global_rewards = global_rewards - 50
+                    #global_rewards = global_rewards - 50
                     self.team_2_score += 50
                 else:
-                    global_rewards = global_rewards + 50
+                    #global_rewards = global_rewards + 50
                     self.team_1_score += 50
 
             o1.setFlag(o2)

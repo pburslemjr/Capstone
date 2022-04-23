@@ -590,7 +590,7 @@ class Runner(AbstractEnvRunner):
                     else:
                         self.norm_w = min(self.norm_w*10.0, 1.0)
                     print("Prev ep= ", self.prev_ep_reward, "Cur_ep= ", mean_ep_rew)
-                    self.prev_mean_reward = mean_ep_rew
+                    self.prev_ep_reward = mean_ep_rew
                 self.ep_reward = []
                 print("EPISODE DONE")
                 self.env.reset()

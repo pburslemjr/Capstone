@@ -699,7 +699,7 @@ class Runner(AbstractEnvRunner):
                     self.cur_mean_reward = self.cur_mean_reward/100.0
                     if(self.phase_condition(self.last_trust_update, self.cur_mean_reward, self.prev_mean_reward)):
                         self.policy_prob = min(self.policy_prob+self.get_phase_step(), 1.0)
-                        self.prev_mean_reward = max(((self.mean_updates-1)/self.mean_updates)*self.prev_mean_reward + (1/self.mean_updates)*self.cur_mean_reward, 0.0)
+                    self.prev_mean_reward = max(((self.mean_updates-1)/self.mean_updates)*self.prev_mean_reward + (1/self.mean_updates)*self.cur_mean_reward, 0.0)
                     #else:
                         #self.policy_prob = max(self.policy_prob-get_phase_step(), 0.1)
 
